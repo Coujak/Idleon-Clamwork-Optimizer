@@ -158,6 +158,44 @@
     }
     return lo;
   }
+  function afkRerollEstimate({ regular, pureChance, pureExtra, offerChance, hours, autoClaim=false }) {
+    // Simplified policy: keep any claim with Pure Pearls, otherwise reroll if offered.
+    // Each rerolled claim is assumed to have the same probability and reward distribution.
+    // In-game replacement tables can differ, so do NOT substitute this for the native AFK worker.
+    if (![regular,pureChance,pureExtra,offerChance,hours].every(Number.isFinite)
+      || regular<0 || pureExtra<0 || pureChance<0 || pureChance>1
+      || offerChance<0 || offerChance>1 || hours<=0) return null;
+    const q=autoClaim?0:offerChance;
+    const probability=pureChance>0 ? pureChance/(1-q*(1-pureChance)) : 0;
+    const base=regular+pureChance*pureExtra;
+    const withRerolls=regular+probability*pureExtra;
+    return {base,withRerolls,probability,gain:withRerolls-base,
+      extraPerHour:(withRerolls-base)/hours,expectedRerolls:pureChance>0?
+        q*(1-pureChance)/(1-q*(1-pureChance)):q===1?Infinity:q/(1-q)};
+  }
+  function renderReroll() {
+    const read=id=>document.getElementById(id).value.trim();
+    const number=id=>numberInput(read(id));
+    const pct=id=>read(id)===''?NaN:number(id)/100;
+    const amount=id=>read(id)===''?NaN:number(id);
+    const result=afkRerollEstimate({
+      regular:amount('pAfkRegular'),
+      pureChance:pct('pAfkPurePct'), pureExtra:amount('pAfkPureExtra'),
+      offerChance:pct('pAfkOfferPct'), hours:amount('pAfkClaimHours'),
+      autoClaim:document.getElementById('pAfkAutoClaim').checked
+    });
+    const node=$('pAfkRerollSummary');
+    if(!result){
+      node.textContent='Enter your typical AFK claim details to compare collecting immediately versus rerolling Pure Pearl misses.';
+      return;
+    }
+    node.textContent='Without rerolls: '+fmt(result.base)+' pearls/claim. '+
+      'Keep Pure; reroll misses: '+fmt(result.withRerolls)+' pearls/claim '+
+      '(+'+fmt(result.gain)+', or +'+fmt(result.extraPerHour)+'/hr across that character’s claim interval). '+
+      'Pure Pearl chance: '+(100*result.probability).toFixed(2)+'% after rerolls. '+
+      'Expected rerolls per claim: '+(Number.isFinite(result.expectedRerolls)?
+      result.expectedRerolls.toFixed(2):'unbounded')+'.';
+  }
   function hoursText(hours) {
     if(!finite(hours))return '—';
     if(hours<1)return (hours*60).toFixed(1)+' min';
@@ -189,10 +227,14 @@
     const bestAfter=after?after.best.score:NaN;
     const baseRate=estimate?.baseRate||NaN;
     const remainingPearls=expectedNeed(state.pearls,promo.cost,promo.chance);
-    const rate=observedRate;
+    const baseActive=activeFocus==='pearls'&&finitePositive(activePearlsPerHour)?activePearlsPerHour:0;
+    const baseAfk=finitePositive(afkPearlsPerHour)?afkPearlsPerHour:0;
+    const rate=baseActive+baseAfk;
     const hasRate=finitePositive(rate);
     show('pExpectedNeed',fmt(remainingPearls));
-    show('pEta',hasRate?hoursText(remainingPearls/rate):'Add pearl rate');
+    show('pEta',hasRate?hoursText(remainingPearls/rate):'Enter farming rates');
+    show('pScurgeActiveRate',finitePositive(activeScurgeExpPerHour)?fmt(activeScurgeExpPerHour)+'/hr':'Not supplied');
+    show('pFarmMode',activeFocus==='pearls'?'Royal Guard: active pearls + AFK':'Arcane Cultist: Scurge EXP + AFK pearls');
     let status='', details='';
     if(state.worker>=12){
       status='Worker Class 12 reached';
@@ -240,7 +282,7 @@
     show('pModeledRateChange',finitePositive(bestAfter)&&finitePositive(baseCost)?(100*(1-bestAfter/baseCost)).toFixed(2)+'% best modeled time reduction':'—');
     show('pTotalCosted','9 / 9 loaded');
     show('pBaselineEta',hasRate?hoursText(remainingPearls/rate):'Not available');
-    show('pPlannedEta',hasRate&&estimate&&after?hoursText(bestAfter*baseRate/rate):'Not available');
+    show('pPlannedEta',hasRate&&estimate&&after&&activeFocus==='pearls'?hoursText(bestAfter*baseRate/rate):'Not available');
     // The cost-growth constants come from public game data, not imported private saves.
   }
   function onSave(profile) {
@@ -248,14 +290,29 @@
     render();
   }
   function init() {
-    $('pRate').addEventListener('change',event=>{
-      const parsed=numberInput(event.target.value);
-      observedRate=finitePositive(parsed)?parsed:NaN;
+    for(const [id,set] of [
+      ['pActiveRate',value=>{activePearlsPerHour=value}],
+      ['pAfkRate',value=>{afkPearlsPerHour=value}],
+      ['pScurgeRate',value=>{activeScurgeExpPerHour=value}]
+    ]){
+      $(id).addEventListener('change',event=>{
+        const parsed=numberInput(event.target.value);
+        set(finitePositive(parsed)?parsed:NaN);
+        render();
+      });
+      $(id).addEventListener('keydown',event=>{if(event.key==='Enter')event.target.blur()});
+    }
+    $('pFarmFocus').addEventListener('change',event=>{
+      activeFocus=event.target.value==='scurge'?'scurge':'pearls';
       render();
     });
-    $('pRate').addEventListener('keydown',event=>{if(event.key==='Enter')event.target.blur()});
+    for(const id of ['pAfkRegular','pAfkPurePct','pAfkPureExtra','pAfkOfferPct','pAfkClaimHours','pAfkAutoClaim']){
+      $(id).addEventListener('input',renderReroll);
+      $(id).addEventListener('change',renderReroll);
+    }
+    renderReroll();
     render();
   }
-  window.ClamworksPlanner={onSave,init,promotion,expectedNeed,pearlProxy,nextCost,costModel,breakEvenCost};
+  window.ClamworksPlanner={onSave,init,promotion,expectedNeed,pearlProxy,nextCost,costModel,breakEvenCost,afkRerollEstimate};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
