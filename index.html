@@ -62,7 +62,7 @@ h1{font-size:26px;letter-spacing:-.035em}
 @media(max-width:850px){.hero{flex-direction:column;align-items:flex-start;gap:18px}.top-actions{width:100%;justify-content:flex-start}.wrap{padding:16px}.panel{padding:21px 18px}}
 @media(max-width:540px){.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.tab{padding:10px 5px;font-size:12px}.nav-save-status{grid-column:1/-1;text-align:center;margin:0}.hero{padding:23px 19px}.panel-heading{align-items:flex-start}.import-status{max-width:125px;white-space:normal;text-align:center}.import-actions .button{flex:1 1 auto}.top-actions .btn{flex:1 1 145px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn,.button,.tab,.stat{transition:none}}
-@media(max-width:540px){.tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}</style><link rel="stylesheet" href="planner.css?v=0.3"></head><body><header><div class="wrap top"><div class="logo" aria-hidden="true">🐚</div><div><h1>Clamworks <span style="color:var(--green)">Lab</span></h1><div class="sub muted">Worker progression optimizer · Sushi Station Lab design family</div></div><span class="pill right">Planner beta v0.2</span></div></header>
+@media(max-width:540px){.tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}</style><link rel="stylesheet" href="planner.css?v=0.4"></head><body><header><div class="wrap top"><div class="logo" aria-hidden="true">🐚</div><div><h1>Clamworks <span style="color:var(--green)">Lab</span></h1><div class="sub muted">Worker progression optimizer · Sushi Station Lab design family</div></div><span class="pill right">Planner beta v0.2</span></div></header>
 <main class="wrap"><div class="hero"><div><h2 style="font-size:25px;margin:0">Road to Worker Class 12</h2><p>Plan from your actual save. Never assume spent points can be refunded.</p></div><div class="top-actions"><button type="button" class="btn secondary" id="sample">Load demo account</button><button type="button" class="btn" id="goImport">Import JSON</button></div></div>
 <div class="grid"><div class="stat"><div class="name">Current Worker Class</div><div class="value green" id="worker">—</div></div><div class="stat"><div class="name">Target Worker Class</div><div class="value" style="color:var(--gold)">12</div></div><div class="stat"><div class="name">Scurge Level</div><div class="value purple" id="scurge">—</div></div><div class="stat"><div class="name">Available Scurge Points</div><div class="value" id="available">—</div></div></div>
 <div class="panel" style="margin-top:17px"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Worker progression</h2><span class="pill" id="goalFlag">Awaiting save</span></div><div class="progress"><div id="bar" style="width:0%"></div></div><div id="steps" class="steps"></div><p class="note">Worker Class is read from OptLacc[464]; Scurge level and upgrades are read from Menagerie. This page does not yet estimate promotion time.</p></div>
@@ -112,18 +112,18 @@ h1{font-size:26px;letter-spacing:-.035em}
 <div class="panel">
 <div class="alloc-section" style="margin-top:0"><div class="alloc-outcome" aria-live="polite">
 <div class="alloc-call-label">CURRENT RECOMMENDATION</div><div id="pOutcome" class="alloc-decision">Import a save to begin</div><div id="pStrategy" class="alloc-explanation">Not yet calculated.</div></div>
-<div id="pConfidence" class="alloc-warning">Recommendations are provisional until upgrade prices are calibrated.</div>
-<div class="alloc-summary-strip"><span>Calibrated upgrade prices: <strong id="pTotalCosted">0 / 9</strong></span><span>Modeled time reduction: <strong id="pModeledRateChange">—</strong></span></div>
+<div id="pConfidence" class="alloc-warning">Upgrade prices are game-data calculated; allocation advice is provisional until full combat and progression modeling.</div>
+<div class="alloc-summary-strip"><span>Upgrade cost formulas: <strong id="pTotalCosted">0 / 9</strong></span><span>Modeled time reduction: <strong id="pModeledRateChange">—</strong></span></div>
 <div class="alloc-split" style="margin-top:12px">
 <div class="alloc-stat"><div class="alloc-label">Save immediately · ETA</div><div class="alloc-number" id="pBaselineEta">—</div></div>
 <div class="alloc-stat"><div class="alloc-label">Modeled purchase plan · ETA</div><div class="alloc-number green" id="pPlannedEta">—</div></div>
 </div></div>
 </div>
 <div class="panel">
-<div class="panel-heading"><div><div class="alloc-eyebrow">PEARL UPGRADES</div><h2>When should I stop investing?</h2></div><button class="button quiet" type="button" id="pResetPrices">Clear prices</button></div>
-<p class="muted" style="font-size:13px">Enter the <strong>next level price shown in game</strong> for each upgrade. The <strong>break-even cost</strong> shows the most you should pay for a single production upgrade before saving becomes faster; discount upgrades are assessed across sequences instead. The JSON contains current levels but not the exact game-data price-growth constants. From a measured next price the planner calibrates the cost formula and compares buying it against saving for a promotion.</p>
-<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Upgrade</th><th>Level</th><th>Next cost input</th><th>Modeled next cost</th><th>Break-even cost</th><th>One-buy time impact</th></tr></thead><tbody id="pPearlRows"></tbody></table></div>
-<p class="alloc-note">The optimizer searches combinations of up to three future pearl-upgrade purchases, including Frugality and Anti Inflation discounts. It holds kill rate constant and excludes Clam Comrades and Multi-Scalping from automatic recommendations until combat / multikill data is modeled. Estimates can change as you supply more prices.</p>
+<div class="panel-heading"><div><div class="alloc-eyebrow">PEARL UPGRADES</div><h2>When should I stop investing?</h2></div><span class="pill">Game-data costs</span></div>
+<p class="muted" style="font-size:13px">Next upgrade costs are calculated <strong>automatically</strong> from your imported levels, current Worker Class, Scurgeworks discounts and the game's verified cost-growth constants. <strong>Break-even cost</strong> is the maximum worth paying for a single production upgrade before saving becomes faster; discount upgrades are assessed across purchase sequences.</p>
+<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Upgrade</th><th>Level</th><th>Next cost</th><th>Break-even cost</th><th>One-buy time impact</th></tr></thead><tbody id="pPearlRows"></tbody></table></div>
+<p class="alloc-note">The optimizer searches combinations of up to three future pearl-upgrade purchases, including Frugality and Anti Inflation discounts. It holds kill rate constant and excludes Clam Comrades and Multi-Scalping from automatic recommendations until combat / multikill data is modeled. The spending recommendation remains provisional until the character-specific farming model is integrated.</p>
 </div>
 <div class="panel">
 <div class="panel-heading"><div><div class="alloc-eyebrow">SCURGEWORKS</div><h2>How to spend remaining Scurge Points</h2></div><span class="pill purple" id="pAvailableScurge">— unspent</span></div>
@@ -136,7 +136,7 @@ h1{font-size:26px;letter-spacing:-.035em}
 <section id="promotion" class="section" role="tabpanel"><div class="panel"><h2>Road to Worker Class 12</h2>
 <div class="callout">The <strong>Allocation Planner</strong> now compares pearl and Scurge purchases against saving for your <strong>next promotion</strong>. Worker Class 12 remains the end goal; full cross-promotion optimization will require a model for post-promotion resets, new Scurge leveling, and character-specific farming changes.</div>
 <button class="button primary" id="openAllocatorFromPromotion" type="button" style="margin-top:14px">Open Allocation Planner</button><h3 style="margin-top:20px">Simulation milestones</h3><div id="milestones"></div><details><summary>What the upcoming engine will compare</summary><ul><li>Keep your existing allocation versus spending only unspent Scurge Points</li><li>Short EXP investment versus earlier pearl or cost-reduction upgrades</li><li>Different characters, Self Affliction levels, and realistic kill/respawn limits</li><li>Expected time to each promotion rather than only immediate EXP/hour</li></ul></details></div></section>
-<div class="footer">Clamworks Lab · Clamworks Lab · Allocation Planner beta · Promotion-cycle model under calibration</div></main>
+<div class="footer">Clamworks Lab · Allocation Planner beta · Promotion-cycle model under calibration</div></main>
 <script>
 'use strict';const NAMES=['Reckoning','Pearl Infection','Self Affliction','Cost Dissolving','Even Better','Cross Culting','Gravestart','Swarming','True Scurge'];const UNLOCKS=[0,5,10,25,50,100,250,500,1000];let profile=null;
 const $=id=>document.getElementById(id);function fmt(n){
@@ -160,7 +160,7 @@ function parseCompactNumber(value) {
   const scale = ({M:1e6,B:1e9,T:1e12,Q:1e15,QQ:1e18})[suffix] ?? (suffix.startsWith('E') ? 10 ** Number(suffix.slice(1)) : 1);
   return Number(match[1]) * scale;
 }
-function parseSave(source){if(!source||typeof source!=='object'||Array.isArray(source))throw Error('Expected a JSON object');const d=source.data&&typeof source.data==='object'?source.data:source;let m=d.Menagerie;if(typeof m==='string')m=JSON.parse(m);let ola=d.OptLacc;if(typeof ola==='string')ola=JSON.parse(ola);if(!Array.isArray(m)||!Array.isArray(ola)||!Array.isArray(m[5])||!Array.isArray(m[0]))throw Error('Could not locate OptLacc and Menagerie save fields.');let levels=Array.from({length:9},(_,i)=>Number(m[5][i])||0);return {worker:Number(ola[464])||0,scurge:Number(m[0][8])||0,pearls:Number(ola[454])||0,levels,pearlLevels:Array.from({length:9},(_,i)=>Number(ola[455+i])||0),scurgeLevels:levels.slice(),blackUnlocked:(Number(ola[460])||0)>=1,source:source.data?'Idleon Toolbox':'Raw game data'};}
+function parseSave(source){if(!source||typeof source!=='object'||Array.isArray(source))throw Error('Expected a JSON object');const d=source.data&&typeof source.data==='object'?source.data:source;let m=d.Menagerie;if(typeof m==='string')m=JSON.parse(m);let ola=d.OptLacc;if(typeof ola==='string')ola=JSON.parse(ola);if(!Array.isArray(m)||!Array.isArray(ola)||!Array.isArray(m[5])||!Array.isArray(m[0]))throw Error('Could not locate OptLacc and Menagerie save fields.');let levels=Array.from({length:9},(_,i)=>Number(m[5][i])||0);return {worker:Number(ola[464])||0,scurge:Number(m[0][8])||0,pearls:Number(ola[454])||0,levels,pearlLevels:Array.from({length:9},(_,i)=>Number(ola[455+i])||0),pearlUnlocked:Number(ola[465])||0,scurgeLevels:levels.slice(),blackUnlocked:(Number(ola[460])||0)>=1,source:source.data?'Idleon Toolbox':'Raw game data'};}
 function showTab(tab){
   document.querySelectorAll('.tab').forEach(el=>{
     const selected=el.dataset.tab===tab;
@@ -281,4 +281,4 @@ $('sample').addEventListener('click',()=>{
   }catch(error){handleImportError(error)}
 });
 // All examples are fictional. Imported account data is never sent to the server.
-</script><script src="planner.js?v=0.3"></script></body></html>
+</script><script src="planner.js?v=0.4"></script></body></html>
