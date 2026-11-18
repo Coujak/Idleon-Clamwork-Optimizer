@@ -62,12 +62,13 @@ h1{font-size:26px;letter-spacing:-.035em}
 @media(max-width:850px){.hero{flex-direction:column;align-items:flex-start;gap:18px}.top-actions{width:100%;justify-content:flex-start}.wrap{padding:16px}.panel{padding:21px 18px}}
 @media(max-width:540px){.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.tab{padding:10px 5px;font-size:12px}.nav-save-status{grid-column:1/-1;text-align:center;margin:0}.hero{padding:23px 19px}.panel-heading{align-items:flex-start}.import-status{max-width:125px;white-space:normal;text-align:center}.import-actions .button{flex:1 1 auto}.top-actions .btn{flex:1 1 145px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn,.button,.tab,.stat{transition:none}}
-</style></head><body><header><div class="wrap top"><div class="logo" aria-hidden="true">🐚</div><div><h1>Clamworks <span style="color:var(--green)">Lab</span></h1><div class="sub muted">Worker progression optimizer · Sushi Station Lab design family</div></div><span class="pill right">Foundation v0.1</span></div></header>
+</style><link rel="stylesheet" href="planner.css?v=0.2"></head><body><header><div class="wrap top"><div class="logo" aria-hidden="true">🐚</div><div><h1>Clamworks <span style="color:var(--green)">Lab</span></h1><div class="sub muted">Worker progression optimizer · Sushi Station Lab design family</div></div><span class="pill right">Foundation v0.1</span></div></header>
 <main class="wrap"><div class="hero"><div><h2 style="font-size:25px;margin:0">Road to Worker Class 12</h2><p>Plan from your actual save. Never assume spent points can be refunded.</p></div><div class="top-actions"><button type="button" class="btn secondary" id="sample">Load demo account</button><button type="button" class="btn" id="goImport">Import JSON</button></div></div>
 <div class="grid"><div class="stat"><div class="name">Current Worker Class</div><div class="value green" id="worker">—</div></div><div class="stat"><div class="name">Target Worker Class</div><div class="value" style="color:var(--gold)">12</div></div><div class="stat"><div class="name">Scurge Level</div><div class="value purple" id="scurge">—</div></div><div class="stat"><div class="name">Available Scurge Points</div><div class="value" id="available">—</div></div></div>
 <div class="panel" style="margin-top:17px"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Worker progression</h2><span class="pill" id="goalFlag">Awaiting save</span></div><div class="progress"><div id="bar" style="width:0%"></div></div><div id="steps" class="steps"></div><p class="note">Worker Class is read from OptLacc[464]; Scurge level and upgrades are read from Menagerie. This page does not yet estimate promotion time.</p></div>
 <nav class="tabs" aria-label="Clamworks sections" role="tablist">
 <button type="button" class="tab active" role="tab" aria-controls="overview" aria-selected="true" data-tab="overview">Overview</button>
+<button type="button" class="tab" role="tab" aria-controls="allocator" aria-selected="false" data-tab="allocator">Allocation Planner</button>
 <button type="button" class="tab" role="tab" aria-controls="scurgeworks" aria-selected="false" data-tab="scurgeworks">Scurgeworks</button>
 <button type="button" class="tab" role="tab" aria-controls="promotion" aria-selected="false" data-tab="promotion">Promotion Planner</button>
 <span class="nav-save-status" id="navSaveStatus">No save imported</span></nav>
@@ -87,6 +88,49 @@ h1{font-size:26px;letter-spacing:-.035em}
 <p class="import-privacy">🔒 <strong>Processed locally.</strong> Your save stays in this browser and is not uploaded. Supports Idleon Toolbox and raw game-data JSON.</p>
 <details class="import-diagnostics"><summary>Raw data / parser diagnostics</summary><pre id="jsonPreview">No JSON imported yet.</pre></details>
 </div><div class="split"><div class="panel"><h2>Account status</h2><div id="summary" class="callout">Load a JSON export to see your Clamworks progression.</div><h3 style="margin-top:18px">Current pearl balance</h3><div id="pearls" style="font-size:24px;color:var(--gold);font-weight:750">—</div><div class="note">Pearl balance is stored in OptLacc[454].</div></div><div class="panel"><h2>Optimization priorities</h2><div class="callout good"><strong>Phase 1: fastest path to Worker Class 12.</strong> Prioritize reducing total expected promotion time, not maximizing EXP in isolation.</div><ul><li>Respect current point allocation and locked upgrades</li><li>Compare Scurge EXP, pearl value, and pearl upgrade cost</li><li>Account for promotion requirements and combat farming</li><li>Switch to future-content prep at Class 12</li></ul><div class="note">This is a planning framework, not a computed optimal purchase sequence yet.</div></div></div></section>
+<section id="allocator" class="section" role="tabpanel" aria-label="Pearl and Scurge allocation planner">
+<div class="panel">
+<div class="alloc-heading"><div><div class="alloc-eyebrow">02 · CLASS 12 PROGRESSION</div><h2>Combined Allocation Planner</h2>
+<p>Decide when to buy pearl upgrades, where to put unspent Scurge Points, and when it is faster to save for promotion.</p></div><span class="pill">Promotion first</span></div>
+<div class="alloc-grid">
+<div class="alloc-stat"><div class="alloc-label">Next promotion</div><div id="pWorker" class="alloc-number green">—</div></div>
+<div class="alloc-stat"><div class="alloc-label">Current pearls</div><div id="pPearls" class="alloc-number gold">—</div></div>
+<div class="alloc-stat"><div class="alloc-label">Price per attempt</div><div id="pPromoCost" class="alloc-number">—</div></div>
+<div class="alloc-stat"><div class="alloc-label">Success chance / attempt</div><div id="pPromoChance" class="alloc-number purple">—</div></div>
+<div class="alloc-stat"><div class="alloc-label">Expected attempts</div><div id="pAttempts" class="alloc-number">—</div></div>
+<div class="alloc-stat"><div class="alloc-label">Expected pearls spent (fresh)</div><div id="pExpected" class="alloc-number gold">—</div></div>
+</div>
+<div class="alloc-summary-strip"><span>Expected additional pearl farming: <strong id="pExpectedNeed">—</strong></span><span>Baseline ETA: <strong id="pEta">—</strong></span></div>
+<div class="alloc-section">
+<h3>Farming input</h3><p>Optional time estimate. Use your observed pearls per hour at the current promotion and farming setup; this doesn't affect the spend/save ranking when farming speed is unchanged.</p>
+<div class="alloc-controls">
+<label class="alloc-control">Observed pearls per hour<input id="pRate" type="text" inputmode="decimal" placeholder="e.g. 15B or 1.25T" autocomplete="off"></label>
+<div class="alloc-caption">Short forms supported: M, B, T, Q, QQ and e21+.</div>
+</div></div>
+</div>
+<div class="panel">
+<div class="alloc-section" style="margin-top:0"><div class="alloc-outcome" aria-live="polite">
+<div class="alloc-call-label">CURRENT RECOMMENDATION</div><div id="pOutcome" class="alloc-decision">Import a save to begin</div><div id="pStrategy" class="alloc-explanation">Not yet calculated.</div></div>
+<div id="pConfidence" class="alloc-warning">Recommendations are provisional until upgrade prices are calibrated.</div>
+<div class="alloc-summary-strip"><span>Calibrated upgrade prices: <strong id="pTotalCosted">0 / 9</strong></span><span>Modeled time reduction: <strong id="pModeledRateChange">—</strong></span></div>
+<div class="alloc-split" style="margin-top:12px">
+<div class="alloc-stat"><div class="alloc-label">Save immediately · ETA</div><div class="alloc-number" id="pBaselineEta">—</div></div>
+<div class="alloc-stat"><div class="alloc-label">Modeled purchase plan · ETA</div><div class="alloc-number green" id="pPlannedEta">—</div></div>
+</div></div>
+</div>
+<div class="panel">
+<div class="panel-heading"><div><div class="alloc-eyebrow">PEARL UPGRADES</div><h2>When should I stop investing?</h2></div><button class="button quiet" type="button" id="pResetPrices">Clear prices</button></div>
+<p class="muted" style="font-size:13px">Enter the <strong>next level price shown in game</strong> for each upgrade. The JSON contains current levels but not the exact game-data price-growth constants. From a measured next price the planner calibrates the cost formula and compares buying it against saving for a promotion.</p>
+<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Upgrade</th><th>Level</th><th>Next cost input</th><th>Modeled next cost</th><th>One-buy time impact</th></tr></thead><tbody id="pPearlRows"></tbody></table></div>
+<p class="alloc-note">The optimizer searches combinations of up to three future pearl-upgrade purchases, including Frugality and Anti Inflation discounts. It holds kill rate constant and excludes Clam Comrades and Multi-Scalping from automatic recommendations until combat / multikill data is modeled. Estimates can change as you supply more prices.</p>
+</div>
+<div class="panel">
+<div class="panel-heading"><div><div class="alloc-eyebrow">SCURGEWORKS</div><h2>How to spend remaining Scurge Points</h2></div><span class="pill purple" id="pAvailableScurge">— unspent</span></div>
+<p class="muted" style="font-size:13px">The promotion-push comparison evaluates unspent Scurge Points for pearl value and pearl-upgrade discounts. It does <strong>not</strong> pretend extra EXP immediately increases pearl production; that will require modeling future Scurge levels and character damage.</p>
+<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Scurge upgrade</th><th>Current level</th><th>Suggested +points</th></tr></thead><tbody id="pScurgeRows"></tbody></table></div>
+<div class="alloc-summary-strip"><span>Observed production: <strong id="pCurrentRate">Not supplied</strong></span></div>
+</div>
+</section>
 <section id="scurgeworks" class="section" role="tabpanel"><div class="panel"><h2>Scurgeworks upgrade allocation</h2><p class="muted">Imported levels are preserved. The allocation comparison will be added after validating each upgrade formula.</p><div style="overflow-x:auto"><table><thead><tr><th>Upgrade</th><th>Unlock at Scurge LV</th><th>Current Level</th><th>State</th></tr></thead><tbody id="upgrades"></tbody></table></div><div id="allocationNote" class="note"></div></div></section>
 <section id="promotion" class="section" role="tabpanel"><div class="panel"><h2>Promotion Planner · calculation engine next</h2><div class="callout">Accurate time-to-Class-12 recommendations require an account-specific pearl rate, upgrade costs, promotion conditions, and an EXP/kill combat model. Until those inputs are validated, this tab deliberately makes no claims about the optimal sequence.</div><h3 style="margin-top:20px">Simulation milestones</h3><div id="milestones"></div><details><summary>What the upcoming engine will compare</summary><ul><li>Keep your existing allocation versus spending only unspent Scurge Points</li><li>Short EXP investment versus earlier pearl or cost-reduction upgrades</li><li>Different characters, Self Affliction levels, and realistic kill/respawn limits</li><li>Expected time to each promotion rather than only immediate EXP/hour</li></ul></details></div></section>
 <div class="footer">Clamworks Lab · Foundation prototype · Mechanics and progression simulation are under development</div></main>
@@ -174,6 +218,7 @@ function load(raw,fromDemo=false){
   setFeedback('Loaded '+sourceLabel+' successfully. Your account dashboard is ready.');
   $('jsonPreview').textContent='Source: '+sourceLabel+'\nWorker Class: '+next.worker+'\nScurge Level: '+next.scurge+'\nPearl balance: '+fmt(next.pearls)+'\nScurgeworks levels: '+next.levels.join(', ')+'\nOnly Clamworks fields are displayed here.';
   showTab('overview');
+  window.ClamworksPlanner?.onSave(profile);
 }
 function handleImportError(error){
   setImportStatus('Import failed','error');
@@ -211,6 +256,7 @@ $('fileLabel').addEventListener('keydown',event=>{
 });
 $('clearImport').addEventListener('click',()=>{
   profile=null;renderEmpty();
+  window.ClamworksPlanner?.onSave(null);
   $('file').value='';$('paste').value='';
   setPasteOpen(false);
   setImportStatus('Waiting for data');
@@ -226,4 +272,4 @@ $('sample').addEventListener('click',()=>{
   }catch(error){handleImportError(error)}
 });
 // All examples are fictional. Imported account data is never sent to the server.
-</script></body></html>
+</script><script src="planner.js?v=0.2"></script></body></html>
