@@ -30,7 +30,7 @@ A community-made **Legends of Idleon** Clamworks / Scurgeworks progression plann
 5. After GitHub finishes deploying, visit:
    **https://coujak.github.io/Idleon-Clamwork-Optimizer/**
 
-The entire prototype is the root `index.html`; no build step is required.
+The website is static: `index.html`, `planner.js` and `planner.css` live in the repository root. No build step is required.
 
 ## Privacy
 
