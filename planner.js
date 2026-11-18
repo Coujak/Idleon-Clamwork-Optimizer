@@ -1,7 +1,6 @@
-/* Clamworks Lab — transparent promotion-cycle planner
-   The save has upgrade levels, but NOT the nine cost-growth constants.
-   Prices must be calibrated against the next-cost numbers shown in game.
-   Sources: current game descriptions and Clamworks formula reference.
+/* Clamworks Lab — provisional promotion-cycle planner
+   Upgrade costs use public game-data constants; farming throughput remains
+   estimated until character-specific active and AFK simulation is integrated.
 */
 (() => {
   'use strict';
@@ -20,8 +19,10 @@
   const finite = n => Number.isFinite(n) && n >= 0;
   const finitePositive = n => Number.isFinite(n) && n > 0;
   let state = null;
-  let observedRate = NaN;
-  let multikill = NaN;
+  let activePearlsPerHour = NaN;
+  let afkPearlsPerHour = NaN;
+  let activeScurgeExpPerHour = NaN;
+  let activeFocus = 'pearls';
 
   function promotion(worker) {
     const cost = 1e5 * Math.pow(10,worker);
@@ -45,11 +46,12 @@
     const pearlValue = (1+levels[0])*(1+0.1*levels[7])*
       (1+0.5*scurge[1])*(1+0.1*scurge[8]*rank);
     const dropMulti = (1+0.1*levels[6]) * Math.pow(0.66,worker);
-    const regular = 0.005*dropMulti*pearlValue*chance10;
-    const black = blackUnlocked ? 0.000025*dropMulti*(50+50*levels[5]) : 0;
-    // Multi-Scalping and clam-count kill-speed effects need character-specific metrics.
-    // Both are held fixed, not fabricated, in this provisional pearl proxy.
-    return regular + black;
+    const regular = 0.005*dropMulti;
+    const black = levels[5]>=1 ? 0.000025*dropMulti*(50+50*levels[5]) : 0;
+    // Both pearl types are multiplied by the entire pearl-value factor and 10x roll.
+    // Validated against Clamworks AFK payout implementation and Toolbox formula.
+    // Multi-Scalping and live clam-count throughput still need a combat model.
+    return (regular+black)*pearlValue*chance10;
   }
   function costModel() {
     return COST_RATES;
