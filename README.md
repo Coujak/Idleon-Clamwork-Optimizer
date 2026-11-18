@@ -4,7 +4,7 @@ A community-made **Legends of Idleon** Clamworks / Scurgeworks progression plann
 
 **Goal:** Reach Worker Class 12 as efficiently as possible, then transition to future-content preparation.
 
-## Current prototype (v0.2 — combined allocation planner)
+## Current prototype (v0.3 — verified game-data upgrade costs)
 
 - Import **Idleon Toolbox JSON** or **raw game-data JSON** from a local file or pasted text.
 - View current Worker Class, Scurge Level, pearl balance and the Scurgeworks upgrade allocation.
@@ -15,9 +15,11 @@ A community-made **Legends of Idleon** Clamworks / Scurgeworks progression plann
 - **Allocation Planner** compares the next promotion against saving immediately, buying pearl upgrades, and assigning unspent Scurge Points.
 - Show promotion cost, success chance, expected attempts and expected pearls to earn, including existing balance.
 - Compute break-even prices for a single pearl-production upgrade. Estimate discounted multi-purchase paths (up to three purchases), including Frugality and Anti Inflation.
-- Allow observed pearl-production rate input for ETA, and in-game next-upgrade price input for cost calibration.
+- Calculate **all nine Clamworks next-upgrade prices automatically** using built-in game-data multipliers, the current Worker Class, account upgrade levels and discount effects. Observed pearl-production rate remains optional for ETA.
 
-**Important:** Recommendations are **provisional**. The game save does not include the full Clamworks price-growth constants, so exact next-upgrade prices must be entered from the game. Until relevant prices are supplied, the planner does not claim a global best purchase. The present search models at most three further pearl purchases within **the current promotion**, and assumes a constant kill rate; Clam Comrades, Multi-Scalping, future Scurge EXP leveling, and post-promotion reset cycles require character-specific combat modeling. Calibrations are kept in browser memory and are cleared on a changed import. Available Scurge Points are estimated as Scurge level minus allocated points.
+**Game-data cost accuracy:** The Clamworks formula is based on `Thingies.Clam_Cost`, using `generalSpelunky[29]` for the nine growth rates and `generalSpelunky[28]` for bonus values. These are published in [Idleon Toolbox's game-data bundle](https://github.com/Morta1/IdleonToolbox) and implemented in both [Idleon Toolbox's Clamworks parser](https://github.com/Morta1/IdleonToolbox/blob/main/parsers/world-7/clamWork.ts) and [Corgan's calculator](https://github.com/Corgan/idleon-research-optimizer/blob/main/js/stats/systems/w7/clamworks.js). Next-level costs have been verified against all nine live-game reference prices from [Idleon Toolbox's test](https://github.com/Morta1/IdleonToolbox/blob/main/__test__/parsers/live-verified-clam-work.test.js). No manual price inputs are required.
+
+**Important:** Although the purchase **costs** are now validated, recommendations remain **provisional**. The present search examines at most three pearl purchases within the current promotion and holds character-specific kill rate constant; Clam Comrades, Multi-Scalping, future Scurge EXP leveling and post-promotion reset cycles require further modeling. Available Scurge Points are estimated as Scurge level minus allocated points.
 
 ## Enable GitHub Pages
 
@@ -36,7 +38,7 @@ Imported saves are parsed **locally in the browser**. The public repository cont
 
 ## Development roadmap
 
-1. Verify price-growth constants and model the character-specific pearl/Scurge EXP kill rates for Clam Comrades, Multi-Scalping and Self Affliction.
+1. Model character-specific pearl/Scurge EXP kill rates for Clam Comrades, Multi-Scalping and Self Affliction (price-growth constants are already verified).
 2. Expand the bounded purchase-sequence search into a stronger promotion-cycle optimizer.
 3. Simulate the progression across repeated promotions, including upgrade resets, to **Worker Class 12**.
 4. Add post-Class-12 progression and future-content preparation.
