@@ -8,8 +8,11 @@
   const PEARL = ['Pearl Value','Clam Comrades','Lucky Day','Multi-Scalping','Frugality','Pure Pearls','Encystation Up','Shinier Pearls','Anti Inflation'];
   const SCURGE = ['Reckoning','Pearl Infection','Self Affliction','Cost Dissolving','Even Better','Cross Culting','Gravestart','Swarming','True Scurge'];
   const S_UNLOCK = [0,5,10,25,50,100,250,500,1000];
-  const P_PER_LEVEL = [1,1,3,null,12,50,10,10,16];
-  const S_PER_LEVEL = [2,50,200,25,150,10,null,10,10];
+  // Legends of Idleon game data generalSpelunky[28] (bonuses) and [29] (cost growth).
+  // Cross-checked with Morta1/IdleonToolbox live-game costs on 2026-10-12.
+  const P_PER_LEVEL = [1,1,3,1,12,50,10,10,16];
+  const S_PER_LEVEL = [1,50,200,25,150,10,1,10,10];
+  const COST_RATES = [1.20,5.00,1.50,1.40,1.15,1.50,1.35,1.25,1.22];
   const fmt = window.fmt || (n => Number(n).toLocaleString('en-US',{maximumFractionDigits:2}));
   const numberInput = window.parseCompactNumber || (value => Number(value));
   const $ = id => document.getElementById(id);
@@ -17,7 +20,6 @@
   const finite = n => Number.isFinite(n) && n >= 0;
   const finitePositive = n => Number.isFinite(n) && n > 0;
   let state = null;
-  let prices = Array(9).fill(NaN);
   let observedRate = NaN;
   let multikill = NaN;
 
@@ -49,39 +51,23 @@
     // Both are held fixed, not fabricated, in this provisional pearl proxy.
     return regular + black;
   }
-  function costModel(profile,baseScurge) {
-    const baseReduction = Array.from({length:9},(_,i)=>reduction(profile.pearlLevels,baseScurge,i));
-    return Array.from({length:9},(_,i)=>{
-      const quoted = prices[i];
-      if(!finitePositive(quoted))return null;
-      const currentNext = Math.max(1,profile.pearlLevels[i]+1);
-      const undiscounted = quoted/baseReduction[i];
-      const baseTerm = i===0?1:4*Math.pow(10+3*profile.worker,i-1);
-      const poly = i===0?3*currentNext+Math.pow(currentNext,2.5):2*currentNext+Math.pow(currentNext,1.5);
-      const ratio=(undiscounted-poly)/baseTerm;
-      const growth = ratio>0?Math.pow(ratio,1/currentNext):NaN;
-      return {undiscounted,currentNext,growth,baseTerm,knownNext:quoted};
-    });
+  function costModel() {
+    return COST_RATES;
   }
   function nextCost(profile,levels,scurge,model,i) {
-    if(!model[i])return NaN;
-    const calibrated=model[i];
-    const nextLevel = levels[i]+1;
-    let raw;
-    if(nextLevel===calibrated.currentNext)raw=calibrated.undiscounted;
-    else if(finitePositive(calibrated.growth)){
-      const poly = i===0?3*nextLevel+Math.pow(nextLevel,2.5):2*nextLevel+Math.pow(nextLevel,1.5);
-      raw=calibrated.baseTerm*Math.pow(calibrated.growth,nextLevel)+poly;
-    }else return NaN;
+    // Thingies.Clam_Cost: level is the CURRENT level; this is the in-game purchase price.
+    const lv=Number(levels[i])||0;
+    const rate=Number(model[i]);
+    if(!finitePositive(rate))return NaN;
+    const raw=i===0
+      ? Math.pow(rate,lv)+3*lv+Math.pow(lv,2.5)
+      : (20*Math.pow(10+3*profile.worker,i-1)/5)*Math.pow(rate,lv)
+        +2*lv+Math.pow(lv,1.5);
     const result=raw*reduction(levels,scurge,i);
-    return finitePositive(result)?result:NaN;
+    return finite(result)?result:NaN;
   }
   function accessible(profile,levels,i) {
-    if(levels[i]>0)return true;
-    const unlock=20*Math.pow(10+3*profile.worker,i);
-    // If unpurchased and never visible, access may require obtaining this threshold.
-    // We do not block it here; the game might have unlocked it previously.
-    return finitePositive(unlock);
+    return levels[i]>0 || i<=(profile.pearlUnlocked??0);
   }
   function simulate(profile,scurge,model,maximumDepth=3) {
     const promo=promotion(profile.worker);
@@ -193,7 +179,7 @@
     show('pPromoChance',(100*promo.chance).toFixed(2)+'%');
     show('pAttempts',promo.expectedAttempts.toFixed(1));
     show('pExpected',fmt(promo.expectedCost));
-    const calibrated=costModel(state,state.scurgeLevels);
+    const calibrated=costModel();
     const estimate=simulate(state,state.scurgeLevels,calibrated,3);
     const scurge=allocateScurge(state,calibrated);
     const after=simulate(state,scurge.allocation,calibrated,3);
@@ -206,16 +192,11 @@
     show('pExpectedNeed',fmt(remainingPearls));
     show('pEta',hasRate?hoursText(remainingPearls/rate):'Add pearl rate');
     let status='', details='';
-    const unknown=9-calibrated.filter(Boolean).length;
-    const unknownRelevant=[0,2,4,5,6,7,8].filter(i=>!calibrated[i]);
     if(state.worker>=12){
       status='Worker Class 12 reached';
       details='Switch your objective to permanent progression and future-content preparation.';
     }else if(!estimate){
       status='Need a valid account snapshot';
-    }else if(unknownRelevant.length){
-      status='Provisional — enter next pearl-upgrade costs';
-      details='The save does not contain the game’s cost-growth constants. Enter the in-game next prices to compare buying with saving. Missing prices: '+unknownRelevant.map(i=>PEARL[i]).join(', ')+'.';
     }else if(after.best.history.length){
       status='Invest before saving';
       details='Candidate: '+after.best.history.map(x=>PEARL[x.i]+' +1').join(' → ')+'. Estimated saving versus starting to save now: '+((1-bestAfter/baseCost)*100).toFixed(2)+'% of modeled remaining farming time.';
@@ -229,22 +210,19 @@
     }
     $('pOutcome').textContent=status;
     $('pStrategy').textContent=details || 'No further modeled improvement found.';
-    $('pConfidence').textContent=unknownRelevant.length
-      ?'INCOMPLETE: missing next-cost inputs. Rankings cannot be called globally optimal.'
-      :'PROVISIONAL: only pearl-rate upgrades and purchase sequences up to three levels are compared. Combat effects, future Scurge leveling and post-promotion resets are not simulated.';
+    $('pConfidence').textContent='GAME-DATA COSTS VERIFIED. Allocation advice is PROVISIONAL: purchases are searched only up to three levels. Clam Comrades and Multi-Scalping remain excluded pending character-specific kill-rate and multikill modeling; future Scurge leveling and subsequent promotions are not yet simulated.';
     $('pPearlRows').innerHTML=PEARL.map((name,i)=>{
       const current=state.pearlLevels[i];
       const cost=nextCost(state,state.pearlLevels,state.scurgeLevels,calibrated,i);
       const action=estimate?.firstActions.find(row=>row.history[0].i===i);
       const pct=action?100*(1-action.score/estimate.baseline):NaN;
-      const note=(i===1)?'Combat-dependent':(i===3)?'Requires multikill model':(i===4||i===8)?'Indirect: helps future purchases':!calibrated[i]?'Enter next cost':finite(pct)?(pct>0.00001?'Potential gain':'No immediate gain'):'Needs calibration';
-      const val=finitePositive(prices[i])?String(prices[i]):'';
+      const note=(i===1)?'Kill-rate model pending':(i===3)?'Multikill model pending':
+        (i===4||i===8)?'Indirect: discounts future purchases':'Game-data price';
       const threshold=breakEvenCost(state,state.scurgeLevels,i);
-      const cutoff=i===4||i===8?'Sequence-dependent':i===1||i===3?'Requires combat':finite(threshold)?fmt(threshold):'—';
+      const cutoff=i===4||i===8?'Sequence-dependent':i===1||i===3?'Combat-dependent':finite(threshold)?fmt(threshold):'—';
       return '<tr><td><strong>'+name+'</strong><div class="mini-note">'+note+'</div></td>'+
         '<td><span class="bubble">'+fmt(current)+'</span></td>'+
-        '<td><input type="text" class="planner-price" data-price="'+i+'" aria-label="'+name+' next upgrade cost" placeholder="e.g. 1.5B" value="'+val+'"></td>'+
-        '<td class="numeric">'+(finitePositive(cost)?fmt(cost):'—')+'</td>'+
+        '<td class="numeric">'+(accessible(state,state.pearlLevels,i)&&finite(cost)?fmt(cost):'Locked')+'</td>'+
         '<td class="numeric">'+cutoff+'</td>'+
         '<td class="numeric">'+(finite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'—')+'</td></tr>';
     }).join('');
@@ -258,39 +236,24 @@
     show('pAvailableScurge',scurge.free+' unspent');
     show('pCurrentRate',hasRate?fmt(rate)+'/hr':'Not supplied');
     show('pModeledRateChange',finitePositive(bestAfter)&&finitePositive(baseCost)?(100*(1-bestAfter/baseCost)).toFixed(2)+'% best modeled time reduction':'—');
-    show('pTotalCosted',calibrated.filter(Boolean).length+' / 9 prices entered');
+    show('pTotalCosted','9 / 9 loaded');
     show('pBaselineEta',hasRate?hoursText(remainingPearls/rate):'Not available');
     show('pPlannedEta',hasRate&&estimate&&after?hoursText(bestAfter*baseRate/rate):'Not available');
-    // Calibrations are intentionally not persisted or embedded in the public source.
+    // The cost-growth constants come from public game data, not imported private saves.
   }
   function onSave(profile) {
-    if(!profile){state=null;prices=Array(9).fill(NaN);render();return}
-    const changed=!state||state.worker!==profile.worker||state.scurge!==profile.scurge||
-      state.pearlLevels.some((v,i)=>v!==profile.pearlLevels[i]);
-    if(changed) prices=Array(9).fill(NaN);
-    state=profile;
+    state=profile||null;
     render();
   }
   function init() {
-    for(const row of document.querySelectorAll('[data-planner-tab]')){
-      row.addEventListener('click',()=>{if(window.showTab)window.showTab('allocator')});
-    }
-    $('pPearlRows').addEventListener('change',event=>{
-      const index=Number(event.target.dataset.price);
-      if(!Number.isInteger(index)||index<0||index>8)return;
-      const parsed=numberInput(event.target.value);
-      prices[index]=finitePositive(parsed)?parsed:NaN;
-      render();
-    });
     $('pRate').addEventListener('change',event=>{
       const parsed=numberInput(event.target.value);
       observedRate=finitePositive(parsed)?parsed:NaN;
       render();
     });
     $('pRate').addEventListener('keydown',event=>{if(event.key==='Enter')event.target.blur()});
-    $('pResetPrices').addEventListener('click',()=>{prices=Array(9).fill(NaN);render()});
     render();
   }
-  window.ClamworksPlanner={onSave,init,promotion,expectedNeed,pearlProxy};
+  window.ClamworksPlanner={onSave,init,promotion,expectedNeed,pearlProxy,nextCost,costModel,breakEvenCost};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
