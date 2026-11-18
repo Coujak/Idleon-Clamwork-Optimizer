@@ -209,7 +209,12 @@ function render(){
   $('summary').innerHTML=p.worker>=12?'<strong>Worker Class 12 reached!</strong> Future-content preparation mode is ready for development.':'<strong>'+(12-p.worker)+' promotion'+(12-p.worker===1?'':'s')+' remain</strong> to Worker Class 12. Current Scurge Level: '+fmt(p.scurge)+'. Your existing upgrade allocation consumes '+fmt(spent)+' points.';
   $('upgrades').innerHTML=NAMES.map((name,i)=>'<tr><td><strong>'+name+'</strong></td><td>'+fmt(UNLOCKS[i])+'</td><td><span class="bubble '+(p.levels[i]?'purple':'')+'">'+fmt(p.levels[i])+'</span></td><td>'+(p.scurge>=UNLOCKS[i]?'<span style="color:var(--green)">Unlocked</span>':'<span class="muted">Locked</span>')+'</td></tr>').join('');
   $('allocationNote').textContent=fmt(spent)+' allocated across 9 upgrades · '+fmt(Math.max(0,p.scurge-spent))+' estimated unspent points (assuming one point per level and no alternate point sources).';
-  $('milestones').innerHTML=Array.from({length:Math.max(0,12-p.worker)},(_,i)=>'<div class="step" style="text-align:left;margin:8px 0"><strong>Worker Class '+(p.worker+i)+' → '+(p.worker+i+1)+'</strong><small>ETA: awaiting validated formulas and measured farming rates</small></div>').join('')||'<div class="callout good">Worker Class 12 achieved.</div>';
+  $('milestones').innerHTML=Array.from({length:Math.max(0,12-p.worker)},(_,i)=>{
+    const level=p.worker+i;
+    const cost=1e5*Math.pow(10,level);
+    const chance=0.5/(2+level);
+    return '<div class="step" style="text-align:left;margin:8px 0"><strong>Worker Class '+level+' → '+(level+1)+'</strong><small>Promotion attempt: '+fmt(cost)+' pearls · '+(100*chance).toFixed(2)+'% success chance · '+fmt(cost/chance)+' expected pearls before savings and new upgrades</small></div>';
+  }).join('')||'<div class="callout good">Worker Class 12 achieved.</div>';
 }
 function load(raw,fromDemo=false){
   const next=parseSave(raw);
