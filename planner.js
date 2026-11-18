@@ -152,6 +152,24 @@
     }
     return {allocation,moves,free,plan:current,unassigned:Math.max(0,free-moves.length)};
   }
+  function breakEvenCost(profile,scurge,index) {
+    if(index===1||index===3||index===4||index===8)return NaN;
+    const oldRate=pearlProxy(profile.pearlLevels,scurge,profile.worker,profile.scurge,profile.blackUnlocked);
+    const levels=profile.pearlLevels.slice();levels[index]++;
+    const newRate=pearlProxy(levels,scurge,profile.worker,profile.scurge,profile.blackUnlocked);
+    if(!finitePositive(oldRate)||!finitePositive(newRate)||newRate<=oldRate)return 0;
+    const promo=promotion(profile.worker);
+    const baseline=expectedNeed(profile.pearls,promo.cost,promo.chance)/oldRate;
+    const score=cost=>Math.max(0,cost-profile.pearls)/oldRate+
+      expectedNeed(Math.max(0,profile.pearls-cost),promo.cost,promo.chance)/newRate;
+    let lo=0,hi=promo.expectedCost;
+    if(score(hi)<baseline)return NaN;
+    for(let n=0;n<58;n++){
+      const mid=(lo+hi)/2;
+      if(score(mid)<baseline)lo=mid;else hi=mid;
+    }
+    return lo;
+  }
   function hoursText(hours) {
     if(!finite(hours))return '—';
     if(hours<1)return (hours*60).toFixed(1)+' min';
@@ -206,7 +224,8 @@
       details='Within the compared purchase sequences, buying more pearl upgrades does not shorten expected time to promotion. Save toward '+fmt(promo.cost)+' pearls per attempt.';
     }
     if(scurge.moves.length){
-      details+=' Suggested free Scurge Points for the promotion push: '+scurge.moves.map(i=>SCURGE[i]).join(' → ')+'.';
+      const allocationText=[...new Set(scurge.moves)].map(i=>SCURGE[i]+' +'+scurge.moves.filter(x=>x===i).length).join(', ');
+      details+=' Suggested free Scurge Points for the promotion push: '+allocationText+'.';
     }
     $('pOutcome').textContent=status;
     $('pStrategy').textContent=details || 'No further modeled improvement found.';
@@ -218,12 +237,15 @@
       const cost=nextCost(state,state.pearlLevels,state.scurgeLevels,calibrated,i);
       const action=estimate?.firstActions.find(row=>row.history[0].i===i);
       const pct=action?100*(1-action.score/estimate.baseline):NaN;
-      const note=(i===1)?'Combat-dependent':(i===3)?'Requires multikill model':!calibrated[i]?'Enter next cost':finite(pct)?(pct>0.00001?'Potential gain':'No immediate gain'):'Needs calibration';
+      const note=(i===1)?'Combat-dependent':(i===3)?'Requires multikill model':(i===4||i===8)?'Indirect: helps future purchases':!calibrated[i]?'Enter next cost':finite(pct)?(pct>0.00001?'Potential gain':'No immediate gain'):'Needs calibration';
       const val=finitePositive(prices[i])?String(prices[i]):'';
+      const threshold=breakEvenCost(state,state.scurgeLevels,i);
+      const cutoff=i===4||i===8?'Sequence-dependent':i===1||i===3?'Requires combat':finite(threshold)?fmt(threshold):'—';
       return '<tr><td><strong>'+name+'</strong><div class="mini-note">'+note+'</div></td>'+
         '<td><span class="bubble">'+fmt(current)+'</span></td>'+
         '<td><input type="text" class="planner-price" data-price="'+i+'" aria-label="'+name+' next upgrade cost" placeholder="e.g. 1.5B" value="'+val+'"></td>'+
         '<td class="numeric">'+(finitePositive(cost)?fmt(cost):'—')+'</td>'+
+        '<td class="numeric">'+cutoff+'</td>'+
         '<td class="numeric">'+(finite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'—')+'</td></tr>';
     }).join('');
     $('pScurgeRows').innerHTML=SCURGE.map((name,i)=>{
