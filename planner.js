@@ -241,6 +241,9 @@
       details='Switch your objective to permanent progression and future-content preparation.';
     }else if(!estimate){
       status='Need a valid account snapshot';
+    }else if(activeFocus==='scurge'){
+      status='Scurge farming focus — pearl allocation is provisional';
+      details='While Arcane Cultist is active, only AFK pearl earnings are included in the displayed pearl-rate estimate. We have not yet modeled how Scurge EXP unlocks future points or changes your class-12 timeline. Switch to the Royal Guard pearl-farming focus for the provisional spend-versus-save comparison.';
     }else if(after.best.history.length){
       status='Invest before saving';
       details='Candidate: '+after.best.history.map(x=>PEARL[x.i]+' +1').join(' → ')+'. Estimated saving versus starting to save now: '+((1-bestAfter/baseCost)*100).toFixed(2)+'% of modeled remaining farming time.';
@@ -287,6 +290,12 @@
   }
   function onSave(profile) {
     state=profile||null;
+    if(profile&&typeof profile.autoClaim==='boolean'){
+      $('pAfkAutoClaim').checked=profile.autoClaim;
+    }else if(!profile){
+      $('pAfkAutoClaim').checked=false;
+    }
+    renderReroll();
     render();
   }
   function init() {
