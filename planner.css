@@ -1,0 +1,41 @@
+
+/* Allocation planner — uses Clamworks Lab / Sushi Station visual tokens */
+.alloc-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+.alloc-heading h2{margin:4px 0 6px;font-size:24px;letter-spacing:-.025em}
+.alloc-heading p{margin:0;color:#9fb6c2;font-size:13px;line-height:1.6}
+.alloc-eyebrow{font-size:10px;letter-spacing:.16em;color:#7ecbb9;font-weight:850}
+.alloc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.alloc-stat{min-width:0;background:#152936;border:1px solid #324b58;padding:17px;border-radius:13px}
+.alloc-stat .alloc-label{font-size:12px;color:#a5bbc7}
+.alloc-stat .alloc-number{font-weight:800;font-size:clamp(19px,2.4vw,29px);line-height:1.3;letter-spacing:-.025em;color:#ecf8f2;font-variant-numeric:tabular-nums;margin-top:5px;overflow-wrap:anywhere}
+.alloc-stat .alloc-number.green{color:#70e2aa}
+.alloc-stat .alloc-number.gold{color:#f3cc7b}
+.alloc-stat .alloc-number.purple{color:#c99af8}
+.alloc-section{margin-top:21px}
+.alloc-section h3{margin:0 0 5px;font-size:16px;color:#e8f8f2}
+.alloc-section p{font-size:13px;color:#9eb6c5;margin:0 0 15px}
+.alloc-controls{display:flex;flex-wrap:wrap;align-items:end;gap:14px;margin-top:14px}
+.alloc-control{display:flex;flex-direction:column;gap:6px;flex:1 1 220px;font-size:12px;font-weight:700;color:#b4ccd7}
+.alloc-control input,.planner-price{width:100%;min-height:39px;border:1px solid #3b5464;background:#112130;border-radius:9px;padding:9px 10px;color:#ebf5f6;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.alloc-control input:focus,.planner-price:focus{outline:2px solid #a0ebcc;outline-offset:2px}
+.alloc-outcome{border:1px solid #427b65;border-radius:14px;background:linear-gradient(125deg,#173b33,#152c32);padding:19px 21px}
+.alloc-outcome .alloc-call-label{font-size:11px;letter-spacing:.12em;color:#8adabb;font-weight:800}
+.alloc-outcome .alloc-decision{font-size:21px;font-weight:850;color:#f2fff8;line-height:1.3;margin:6px 0}
+.alloc-outcome .alloc-explanation{font-size:13px;color:#d0e5e0;line-height:1.6}
+.alloc-warning{margin-top:14px;padding:12px 16px;border:1px solid #816940;background:#302e25;color:#f1d8a8;border-radius:10px;font-size:12px;line-height:1.6}
+.alloc-table{width:100%;border-collapse:collapse;min-width:700px}
+.alloc-table th{background:#1b2d3b;text-align:left;position:sticky;top:0;z-index:1}
+.alloc-table td,.alloc-table th{padding:11px 12px;border-bottom:1px solid #293e4a}
+.alloc-table td:nth-child(n+2),.alloc-table th:nth-child(n+2){text-align:right}
+.alloc-table td input{text-align:right;max-width:150px}
+.alloc-table td:first-child{min-width:190px}
+.alloc-table td{font-size:13px}
+.alloc-table .mini-note{font-size:11px;color:#8ba4b2;margin-top:2px}
+.alloc-scroll{max-width:100%;overflow-x:auto;border:1px solid #293d4b;border-radius:13px}
+.alloc-note{font-size:12px;color:#93abba;line-height:1.65;margin-top:14px}
+.alloc-summary-strip{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 0;color:#a6c0c8;font-size:12px}
+.alloc-summary-strip strong{color:#d8f2e7}
+.alloc-split{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.alloc-caption{color:#9eb4c5;font-size:12px;line-height:1.5}
+@media(max-width:850px){.alloc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.alloc-split{grid-template-columns:1fr}}
+@media(max-width:540px){.alloc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.alloc-stat{padding:12px}.alloc-outcome{padding:16px}.alloc-heading{flex-direction:column}}
