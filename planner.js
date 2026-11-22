@@ -265,6 +265,28 @@
     if(!next||!next.value||!base?.value)return null;
     return next.value/base.value;
   }
+  // Merge only adjacent purchases of the same upgrade. Interleaved purchases
+  // must remain separate because discounts and purchase prices depend on order.
+  function groupPurchaseSteps(steps) {
+    const groups=[];
+    for(const step of Array.isArray(steps)?steps:[]){
+      const previous=groups[groups.length-1];
+      const sameRun=previous&&previous.index===step.index&&previous.to===step.from;
+      const gain=1+(Number(step.rateGainPct)||0)/100;
+      if(sameRun){
+        previous.to=step.to;
+        previous.count++;
+        previous.cost+=step.cost;
+        previous.gainFactor*=gain;
+      }else{
+        groups.push({index:step.index,name:step.name,from:step.from,to:step.to,
+          count:1,cost:step.cost,gainFactor:gain});
+      }
+    }
+    return groups.map(({gainFactor,...row})=>({
+      ...row,rateGainPct:100*(gainFactor-1)
+    }));
+  }
   function render() {
     if(!state){
       ['pWorker','pPearls','pPromoCost','pPromoChance','pAttempts','pExpected',
@@ -361,10 +383,12 @@
       status='Unable to calculate a trustworthy spending comparison';
       details='Check your imported Clamworks upgrade and promotion data.';
     }else if(estimate.best.history.length){
-      const seq=estimate.best.history.map(row=>row.name+' '+row.from+'→'+row.to);
+      const grouped=groupPurchaseSteps(estimate.best.history);
+      const seq=grouped.map(row=>row.name+' Lv'+row.from+'→'+row.to+
+        (row.count>1?' ('+row.count+' levels)':''));
       status='Invest before saving';
       details='Purchase sequence: '+seq.slice(0,8).join(' → ')+
-        (seq.length>8?' → '+(seq.length-8)+' more':'')+
+        (seq.length>8?' → '+(seq.length-8)+' more groups':'')+
         '. After these purchases, save for the promotion. Modeled saving: '+
         estimate.relativeImprovementPct.toFixed(2)+'% versus saving immediately.';
     }else{
@@ -393,13 +417,19 @@
           '<strong>Next action:</strong> Save for promotion. Each attempt costs '+fmt(promo.cost)+
           ' Pearls. Success resets temporary Clamworks upgrades.</div>';
       }else{
+        const grouped=groupPurchaseSteps(steps);
+        const totalCost=grouped.reduce((sum,row)=>sum+row.cost,0);
         $('pPlanSteps').innerHTML='<details style="margin-top:12px" open>'+
-          '<summary>Recommended purchase sequence ('+steps.length+' purchases)</summary>'+
-          '<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Step</th><th>Buy</th><th>Price</th><th>Projected yield increase</th></tr></thead><tbody>'+
-          steps.slice(0,16).map((a,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+a.name+
-            ' Lv'+a.from+'→'+a.to+'</strong></td><td class="numeric">'+fmt(a.cost)+
+          '<summary>Recommended purchase sequence ('+grouped.length+' groups · '+
+          steps.length+' levels)</summary>'+
+          '<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Step</th><th>Upgrade</th><th>Levels</th><th>Total cost</th><th>Projected yield gain</th></tr></thead><tbody>'+
+          grouped.map((a,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+a.name+
+            '</strong></td><td>Lv'+a.from+' → '+a.to+
+            ' <span class="bubble">+'+a.count+'</span></td><td class="numeric">'+fmt(a.cost)+
             '</td><td class="numeric">+'+a.rateGainPct.toFixed(2)+'%</td></tr>').join('')+
-          '</tbody></table></div><p class="alloc-note">Re-import a fresh IT JSON after buying upgrades to recalculate the remaining plan. Prices and yields change after purchases and promotions.</p></details>';
+          '</tbody></table></div><p class="alloc-note">Total planned spending: <strong>'+
+          fmt(totalCost)+'</strong> Pearls across '+steps.length+' levels. '+
+          'Re-import a fresh IT JSON after buying upgrades to recalculate the remaining plan. Prices and yields change after purchases and promotions.</p></details>';
       }
     }
     const intro='Decision model: game-data costs, promotion chance and reset, '+
@@ -520,6 +550,6 @@
     if(next?.mode==='pearls'||next?.mode==='scurge')activeFocus=next.mode;
     render();
   }
-  window.ClamworksPlanner={onSave,setFarmModel,init,promotion,expectedNeed,pearlProxy,nextCost,costModel,breakEvenCost,afkRerollEstimate};
+  window.ClamworksPlanner={onSave,setFarmModel,init,promotion,expectedNeed,pearlProxy,nextCost,costModel,breakEvenCost,afkRerollEstimate,groupPurchaseSteps};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
