@@ -494,6 +494,11 @@
       if(window.ClamworksFarming?.setFocus){window.ClamworksFarming.setFocus(activeFocus)}
       else render();
     });
+    // Re-run all recommendations as soon as modeling assumptions change.
+    for(const id of ['pClamScaling','pScurgeGoal','pMaxAffliction']){
+      const control=$(id);
+      if(control)control.addEventListener('change',render);
+    }
     for(const id of ['pAfkRegular','pAfkPurePct','pAfkPureExtra','pAfkOfferPct','pAfkClaimHours','pAfkAutoClaim',
       'pAfkReplacementRegular','pAfkReplacementPurePct','pAfkReplacementExtra']){
       $(id).addEventListener('input',renderReroll);
