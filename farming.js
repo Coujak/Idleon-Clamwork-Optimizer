@@ -156,6 +156,8 @@
     const host=$('characterFarming');
     if(!host)return;
     if(!account){
+      const summaryLabel=$('farmSetupSummary');
+      if(summaryLabel)summaryLabel.textContent='Import a save to select a farming character';
       host.innerHTML='<div class="panel" style="margin-top:16px"><h2>Character-based farming</h2><p class="muted">Import an IT JSON to select a character and calculate Clamworks pearl yields.</p></div>';
       return;
     }
@@ -163,6 +165,9 @@
     if(!plan)return;
     selectedId=plan.active.id;
     const active=plan.active;
+    const summaryLabel=$('farmSetupSummary');
+    if(summaryLabel)summaryLabel.textContent=active.name+' · '+(mode==='pearls'?'Pearl farming':'Scurge EXP')+
+      ' · '+(includeAfk?plan.afk.length+' other AFK character'+(plan.afk.length===1?'':'s'):'AFK excluded');
     const stats='STR '+compact(active.str)+' · AGI '+compact(active.agi)+
       ' · WIS '+compact(active.wis)+' · LUK '+compact(active.luk);
     const rows=plan.afk.map(c=>'<tr><td><strong>'+esc(c.name)+'</strong><div class="muted" style="font-size:11px">'+

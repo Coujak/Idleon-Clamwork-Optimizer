@@ -260,8 +260,8 @@
     return [{weight:1,multikill:Number.isFinite(chosen?.activeMultikill)?
       chosen.activeMultikill:null}];
   }
-  function relativeGainFor(engine,base,levels,options){
-    const next=engine.production(levels,state.scurgeLevels,state.worker,state.scurge,options);
+  function relativeGainFor(engine,base,levels,options,profile=state){
+    const next=engine.production(levels,profile.scurgeLevels,profile.worker,profile.scurge,options);
     if(!next||!next.value||!base?.value)return null;
     return next.value/base.value;
   }
@@ -291,7 +291,7 @@
     if(!state){
       ['pWorker','pPearls','pPromoCost','pPromoChance','pAttempts','pExpected',
         'pExpectedNeed','pEta','pCurrentRate','pBaselineEta','pPlannedEta',
-        'pModeledRateChange','pScurgeActiveRate'].forEach(id=>show(id,'—'));
+        'pModeledRateChange','pScurgeActiveRate','pScurgeCurrentLevel'].forEach(id=>show(id,'—'));
       $('pOutcome').textContent='Import a save to calculate your next promotion.';
       $('pPearlRows').innerHTML='';
       $('pScurgeRows').innerHTML='';
@@ -313,7 +313,6 @@
     const sources=productionSources(engine);
     const options={sources,clamExponent:alpha,
       observedRate:calibrated?rateInfo.total:null,depth:16,width:55};
-    const estimate=engine?.planPearls(state,options)||null;
     const scurgeMode=effectiveMode();
     const rawMax=$('pMaxAffliction')?.value?.trim()??'';
     const maxAffliction=rawMax!==''?Number(rawMax):null;
@@ -325,12 +324,22 @@
       sources,clamExponent:alpha,depth:16,width:55
     };
     const scurge=engine?.optimizeScurge(state,scurgeConfig)||null;
-    const nextScurge=engine?.previewNextScurge(state,scurgeConfig)||null;
+    // In next-promotion mode, newly available Scurge Points are a free,
+    // immediately available upgrade. Evaluate the Pearl purchase sequence
+    // *after* these proposed allocations, so discounts and income agree.
+    const applyScurge=scurgeMode==='promotion'&&scurge?.spent>0;
+    const planningState=applyScurge?
+      {...state,scurgeLevels:scurge.allocation.slice()}:state;
+    const estimate=engine?.planPearls(planningState,options)||null;
+    const previewState=scurge?.spent?
+      {...state,scurgeLevels:scurge.allocation.slice()}:state;
+    const nextScurge=engine?.previewNextScurge(previewState,scurgeConfig)||null;
     // When the selected character is farming Pearls, their incidental Scurge
     // kills are NOT the measured Scurge specialist's active EXP/hour.
     const xpRate=activeFocus==='scurge'&&characterModel&&finitePositive(characterModel.activeScurgeExpPerHour)?
       characterModel.activeScurgeExpPerHour:activeScurgeExpPerHour;
     show('pWorker','Class '+state.worker+' → '+(state.worker+1));
+    show('pScurgeCurrentLevel','Scurge Lv'+state.scurge);
     show('pPearls',fmt(state.pearls));
     show('pPromoCost',fmt(promo.cost));
     show('pPromoChance',(100*promo.chance).toFixed(2)+'%');
@@ -350,14 +359,13 @@
     if($('pScurgeAlternatives')){
       const alternatives=nextScurge?.alternatives||[];
       $('pScurgeAlternatives').innerHTML=alternatives.length?
-        '<details style="margin-top:12px" open><summary>Next Scurge Point: compare Pearl value and discounts</summary>'+
-        '<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Upgrade</th><th>New level</th><th>Time saved to promotion</th></tr></thead><tbody>'+
+        '<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Upgrade</th><th>New Lv</th><th>Time saved</th></tr></thead><tbody>'+
         alternatives.map((candidate,i)=>'<tr><td><strong>'+candidate.name+
-          (i===0?' · recommended':'')+'</strong></td><td>Lv'+
-          (state.scurgeLevels[candidate.index]+1)+'</td><td class="numeric">'+
+          (i===0?' · best':'')+'</strong></td><td>Lv'+
+          (previewState.scurgeLevels[candidate.index]+1)+'</td><td class="numeric">'+
           candidate.gainPct.toFixed(2)+'%</td></tr>').join('')+
-        '</tbody></table></div><p class="alloc-note">Compares allocating the next earned point to each unlocked option under the same Pearl purchase model. These are relative, estimated promotion-time improvements, not guaranteed in-game gains.</p></details>':
-        '';
+        '</tbody></table></div><p class="alloc-note">Compares spending the next earned point using the same next-promotion model. Estimates are relative, not guaranteed in-game gains.</p>':
+        '<p class="alloc-note">No next-point comparison is available for the chosen goal.</p>';
     }
     const pearlActive=finitePositive(activePearlsPerHour)?activePearlsPerHour:
       (activeFocus==='pearls'&&finitePositive(characterModel?.activePearlsPerHour)?
@@ -365,7 +373,7 @@
     const pearlAfk=finitePositive(afkPearlsPerHour)?afkPearlsPerHour:
       (characterModel?.coverage===1&&finite(characterModel?.afkPearlsPerHour)?
         characterModel.afkPearlsPerHour:null);
-    const compareScurge=engine?.switchToScurge(state,{
+    const compareScurge=engine?.switchToScurge(planningState,{
       activePearlsPerHour:pearlActive,
       afkPearlsPerHour:pearlAfk,
       scurgeExpPerHour:finitePositive(xpRate)?xpRate:null,
@@ -388,10 +396,7 @@
     }
     const activeMode=activeFocus==='pearls';
     let status='',details='';
-    if(state.worker>=12){
-      status='Worker Class 12 reached';
-      details='Your current promotion milestone is achieved. Temporary upgrades and Scurge allocations can now be optimized for long-term goals.';
-    }else if(!estimate){
+    if(!estimate){
       status='Unable to calculate a trustworthy spending comparison';
       details='Check your imported Clamworks upgrade and promotion data.';
     }else if(estimate.best.history.length){
@@ -409,22 +414,25 @@
     }
     if(scurge&&scurge.moves.length){
       const distribution=scurge.distribution.filter(d=>d.delta>0).map(d=>d.name+' +'+d.delta);
-      details+=' Unspent Scurge Points: '+distribution.join(', ')+
-        ' ('+scurgeMode+' objective; no existing allocations are moved).';
+      if(applyScurge){
+        details='First allocate '+distribution.join(', ')+
+          '. '+details+
+          ' The Pearl purchase prices and gains shown use those proposed Scurge levels.';
+        status='Allocate Scurge Points first';
+      }else{
+        details+=' Suggested Scurge allocation: '+distribution.join(', ')+
+          ' ('+scurgeMode+' goal; not treated as a completed purchase).';
+      }
     }
     if(scurge?.unsafeExcluded&&scurgeMode==='exp'){
       details+=' Self Affliction was excluded without enough verified on-map damage to confirm that extra levels are safe.';
     }
-    if(!calibrated)details+=' The purchase ORDER is based on relative pearl yield; absolute times require observed income.';
-    if(!estimate?.support?.haveMK)details+=' Multi-Scalping is excluded until participating characters have known total multikill.';
-    if(!activeMode)details+=' Pearl recommendations consider AFK income; the active character is assigned to Scurge progression.';
+    // Keep lengthy modeling limitations in the collapsed accuracy section.
     $('pOutcome').textContent=status;
     $('pStrategy').textContent=details;
     if($('pPlanSteps')){
       const steps=estimate?.best?.history||[];
-      if(state.worker>=12){
-        $('pPlanSteps').innerHTML='';
-      }else if(!steps.length){
+      if(!steps.length){
         $('pPlanSteps').innerHTML='<div class="alloc-outcome" style="margin-top:10px">'+
           '<strong>Next action:</strong> Save for promotion. Each attempt costs '+fmt(promo.cost)+
           ' Pearls. Success resets temporary Clamworks upgrades.</div>';
@@ -444,15 +452,18 @@
           'Re-import a fresh IT JSON after buying upgrades to recalculate the remaining plan. Prices and yields change after purchases and promotions.</p></details>';
       }
     }
-    const intro='Decision model: game-data costs, promotion chance and reset, '+
-      '16-step beam search, Clam Comrades throughput and the imported Pearl/Scurge bonuses.';
+    const intro='Next Class '+state.worker+' → '+(state.worker+1)+
+      ' · game-data costs and promotion chance · 16-purchase heuristic. ';
     $('pConfidence').textContent=intro+' '+
       (calibrated?'Income is calibrated to observed Pearl production. ':
         'No complete Pearl/hr rate: recommendations have relative, not absolute, timing. ')+
       'Clam Comrades assumes '+Math.round(alpha*100)+'% of ideal logarithmic mob-count scaling. '+
       'This is an approximate throughput effect, not a full combat simulation. '+
       'Pure Pearl AFK reroll behavior is not included in upgrade forecasts. '+
-      'Promotions reset temporary upgrades; multi-promotion combat and rate dynamics are not fully simulated.';
+      'Promotions reset temporary upgrades; future-class combat and rate dynamics are not simulated. '+
+      (applyScurge?'Projected Pearl costs and yields include the proposed unspent Scurge allocations; they have not yet been purchased. ':'')+
+      (!estimate?.support?.haveMK?'Multi-Scalping is excluded without complete contributing-character multikill. ':'')+
+      (!activeMode?'The active character is assigned to Scurge farming; the Pearl estimate includes eligible AFK contributions. ':'');
     if(estimate){
       show('pModeledRateChange',estimate.relativeImprovementPct.toFixed(2)+'% faster (model)');
       show('pBaselineEta',calibrated?hoursText(estimate.baselineAbsoluteHours):'Relative only');
@@ -460,54 +471,46 @@
     }else{
       show('pModeledRateChange','—');show('pBaselineEta','—');show('pPlannedEta','—');
     }
-    const base=engine?.production(state.pearlLevels,state.scurgeLevels,state.worker,state.scurge,options);
+    const base=engine?.production(planningState.pearlLevels,planningState.scurgeLevels,
+      planningState.worker,planningState.scurge,options);
     $('pPearlRows').innerHTML=PEARL.map((name,i)=>{
       const current=state.pearlLevels[i],accessible=state.pearlUnlocked>=i||current>0;
-      const price=nextCost(state,state.pearlLevels,state.scurgeLevels,costModel(),i);
+      const price=nextCost(planningState,planningState.pearlLevels,planningState.scurgeLevels,costModel(),i);
       const afterLevels=state.pearlLevels.slice();afterLevels[i]++;
       const cap=i===1&&current>=23;
-      const ratio=relativeGainFor(engine,base,afterLevels,options);
+      const ratio=relativeGainFor(engine,base,afterLevels,options,planningState);
       const improvement=estimate?.firstActions.find(row=>row.history[0]?.index===i);
       const impact=improvement&&estimate?.baseline>0?
         100*(1-improvement.score/estimate.baseline):null;
-      const cutoff=!accessible||cap?'—':(i===4||i===8?'Sequence-dependent':
-        (i===3&&!estimate?.support.haveMK?'Need multikill':
+      const cutoff=!accessible||cap?'—':(i===4||i===8?'Sequence-based':
+        (i===3&&!estimate?.support.haveMK?'Needs MK':
         ratio!==null&&ratio>1.000000001?
-          fmt(engine.singleBuyCutoff(state.pearls,estimate?.promotion||promo,ratio)):'No positive gain'));
-      const note=i===1?'Clam count (throughput assumption)':
-        i===3?(estimate?.support.haveMK?'Character multikill modeled':'Missing participating multikill'):
-        i===4||i===8?'Discounts future upgrades':'Verified cost / yield formula';
-      const display=cap?'At 25-clam cap':accessible&&finite(price)?fmt(price):'Locked';
-      return '<tr><td><strong>'+name+'</strong><div class="mini-note">'+note+'</div></td>'+
+          fmt(engine.singleBuyCutoff(state.pearls,estimate?.promotion||promo,ratio)):'No gain'));
+      const note=i===1?'Kill-rate assumption':
+        i===3?(estimate?.support.haveMK?'Based on MK':'MK unavailable'):
+        i===4||i===8?'Discount upgrade':'';
+      const display=cap?'25-clam cap':accessible&&finite(price)?fmt(price):'Locked';
+      const status=impact===null?'—':(impact>0?'+':'')+impact.toFixed(2)+'%';
+      return '<tr><td><strong>'+name+'</strong>'+(note?
+        '<div class="mini-note">'+note+'</div>':'')+'</td>'+
         '<td><span class="bubble">'+fmt(current)+'</span></td>'+
-        '<td class="numeric">'+display+'</td>'+
-        '<td class="numeric">'+cutoff+'</td>'+
-        '<td class="numeric">'+(impact===null?'—':(impact>0?'+':'')+impact.toFixed(2)+'%')+'</td></tr>';
+        '<td class="numeric">'+display+
+          '<span class="planner-price-secondary">Break-even: '+cutoff+'</span></td>'+
+        '<td class="numeric"><span class="'+(impact===null?'':impact>=0?'planner-positive':'planner-negative')+
+          '">'+status+'</span></td></tr>';
     }).join('');
     if(scurge){
-      $('pScurgeRows').innerHTML=scurge.distribution.map(row=>'<tr><td><strong>'+
-        row.name+'</strong><div class="mini-note">'+(row.unlocked?
-        (row.index===2?'Damage reduction; never auto-assumed safe':
-        row.index===7?'Nearby players: '+(characterModel?.otherPlayers??0):
-        'Game-data bonus'):'Unlocks at Scurge Lv'+(engine.UNLOCKS[row.index]))+
-        '</div></td><td><span class="bubble'+(row.from?' purple':'')+'">'+fmt(row.from)+
-        '</span></td><td class="numeric">'+(row.unlocked?(row.delta?'+'+row.delta:'—'):'Locked')+'</td></tr>').join('');
-      show('pAvailableScurge',scurge.free+' unspent · '+scurge.spent+' suggested');
-      const rows=$('upgrades');
-      if(rows)rows.innerHTML=scurge.distribution.map(row=>'<tr><td><strong>'+row.name+
-        '</strong></td><td>'+engine.UNLOCKS[row.index]+'</td><td>'+
-        fmt(row.from)+'</td><td>'+(row.unlocked?
-        (row.delta?'Suggested +'+row.delta:'No additional points'):'Locked')+'</td></tr>').join('');
-      const note=$('allocationNote');
-      if(note)note.textContent='Objective: '+scurgeMode+
-        '. '+scurge.free+' unspent points. Existing levels stay fixed; '+
-        scurge.spent+' suggested for '+(scurge.spent?
-          scurge.distribution.filter(d=>d.delta>0).map(d=>d.name).join(', '):
-          'nowhere (no spendable improvement or no free points)')+
-        '. '+(nextScurge?'Next earned point (Scurge Lv'+nextScurge.level+'): '+
-          nextScurge.name+'. ':'')+
-        (scurge.searchLimited?' The promotion comparison considers at most 12 newly allocated points at a time. ':'')+
-        'Self Affliction requires confirmed damage before it can be considered. Nearby players are not saved in IT JSON.';
+      $('pScurgeRows').innerHTML=scurge.distribution.map(row=>{
+        const note=!row.unlocked?'Unlocks at Lv'+engine.UNLOCKS[row.index]:
+          row.index===2?'Damage penalty':
+          row.index===7?'Nearby players: '+(characterModel?.otherPlayers??0):'';
+        const delta=row.unlocked?(row.delta?'+'+row.delta:'—'):'Locked';
+        return '<tr><td><strong>'+row.name+'</strong>'+
+          (note?'<div class="mini-note">'+note+'</div>':'')+'</td>'+
+          '<td><span class="bubble'+(row.from?' purple':'')+'">'+fmt(row.from)+
+          '</span></td><td class="numeric">'+delta+'</td></tr>';
+      }).join('');
+      show('pAvailableScurge',scurge.free+' free'+(scurge.spent?' · '+scurge.spent+' to allocate':''));
     }
   }
   function onSave(profile) {

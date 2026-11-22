@@ -62,148 +62,216 @@ h1{font-size:26px;letter-spacing:-.035em}
 @media(max-width:850px){.hero{flex-direction:column;align-items:flex-start;gap:18px}.top-actions{width:100%;justify-content:flex-start}.wrap{padding:16px}.panel{padding:21px 18px}}
 @media(max-width:540px){.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.tab{padding:10px 5px;font-size:12px}.nav-save-status{grid-column:1/-1;text-align:center;margin:0}.hero{padding:23px 19px}.panel-heading{align-items:flex-start}.import-status{max-width:125px;white-space:normal;text-align:center}.import-actions .button{flex:1 1 auto}.top-actions .btn{flex:1 1 145px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn,.button,.tab,.stat{transition:none}}
-@media(max-width:540px){.tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}</style><link rel="stylesheet" href="planner.css?v=0.5"></head><body><header><div class="wrap top"><div class="logo" aria-hidden="true">🐚</div><div><h1>Clamworks <span style="color:var(--green)">Lab</span></h1><div class="sub muted">Worker progression optimizer · Sushi Station Lab design family</div></div><span class="pill right">Planner beta v0.2</span></div></header>
-<main class="wrap"><div class="hero"><div><h2 style="font-size:25px;margin:0">Road to Worker Class 12</h2><p>Plan from your actual save. Never assume spent points can be refunded.</p></div><div class="top-actions"><button type="button" class="btn secondary" id="sample">Load demo account</button><button type="button" class="btn" id="goImport">Import JSON</button></div></div>
-<div class="grid"><div class="stat"><div class="name">Current Worker Class</div><div class="value green" id="worker">—</div></div><div class="stat"><div class="name">Target Worker Class</div><div class="value" style="color:var(--gold)">12</div></div><div class="stat"><div class="name">Scurge Level</div><div class="value purple" id="scurge">—</div></div><div class="stat"><div class="name">Available Scurge Points</div><div class="value" id="available">—</div></div></div>
-<div class="panel" style="margin-top:17px"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Worker progression</h2><span class="pill" id="goalFlag">Awaiting save</span></div><div class="progress"><div id="bar" style="width:0%"></div></div><div id="steps" class="steps"></div><p class="note">Worker Class is read from OptLacc[464]; Scurge level and upgrades are read from Menagerie. This page does not yet estimate promotion time.</p></div>
+@media(max-width:540px){.tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}</style><link rel="stylesheet" href="planner.css?v=0.6"></head><body><header><div class="wrap top"><div class="logo" aria-hidden="true">🐚</div><div><h1>Clamworks <span style="color:var(--green)">Lab</span></h1><div class="sub muted">Worker progression optimizer · Sushi Station Lab design family</div></div><span class="pill right">Next Class Planner</span></div></header>
+<main class="wrap">
+<div class="hero hero-next">
+  <div>
+    <div class="eyebrow">YOUR NEXT PROMOTION</div>
+    <h2 id="heroTarget">Worker Class — → —</h2>
+    <p>One goal at a time: invest in Pearl upgrades, allocate Scurge Points, or save for the next Class.</p>
+  </div>
+  <div class="top-actions">
+    <button type="button" class="btn secondary" id="sample">Try demo</button>
+    <button type="button" class="btn" id="goImport">Import JSON</button>
+  </div>
+</div>
+<div class="grid account-kpis" id="accountKpis" aria-label="Imported account status">
+  <div class="stat"><div class="name">Worker Class</div><div class="value green" id="worker">—</div></div>
+  <div class="stat"><div class="name">Next Class</div><div class="value gold" id="nextWorker">—</div></div>
+  <div class="stat"><div class="name">Scurge Level</div><div class="value purple" id="scurge">—</div></div>
+  <div class="stat"><div class="name">Free Scurge Points</div><div class="value" id="available">—</div></div>
+</div>
 <nav class="tabs" aria-label="Clamworks sections" role="tablist">
-<button type="button" class="tab active" role="tab" aria-controls="overview" aria-selected="true" data-tab="overview">Overview</button>
-<button type="button" class="tab" role="tab" aria-controls="allocator" aria-selected="false" data-tab="allocator">Allocation Planner</button>
-<button type="button" class="tab" role="tab" aria-controls="scurgeworks" aria-selected="false" data-tab="scurgeworks">Scurgeworks</button>
-<button type="button" class="tab" role="tab" aria-controls="promotion" aria-selected="false" data-tab="promotion">Promotion Planner</button>
-<span class="nav-save-status" id="navSaveStatus">No save imported</span></nav>
-<section id="overview" class="section active" role="tabpanel"><div class="panel import-panel" id="importPanel">
-<div class="panel-heading"><div><div class="eyebrow">01 · YOUR SAVE</div><h2>Import game data</h2></div><span id="importStatus" class="import-status" role="status" aria-live="polite">Waiting for data</span></div>
-<div class="import-actions">
-<label class="button secondary" for="file" role="button" tabindex="0" id="fileLabel">Choose JSON file</label>
-<input id="file" type="file" accept=".json,.txt,application/json,text/plain">
-<button type="button" class="button secondary" id="pasteToggle" aria-controls="pasteArea" aria-expanded="false">Paste JSON</button>
-<button type="button" class="button quiet" id="clearImport">Clear</button>
-</div>
-<div id="pasteArea" class="paste-area hidden">
-<textarea id="paste" spellcheck="false" aria-label="Paste game save JSON" placeholder="Paste your Idleon Toolbox export or raw game-data JSON here…"></textarea>
-<button type="button" class="button primary" id="parse">Import JSON</button>
-</div>
-<p id="importFeedback" class="import-feedback hidden" role="alert"></p>
-<p class="import-privacy">🔒 <strong>Processed locally.</strong> Your save stays in this browser and is not uploaded. Supports Idleon Toolbox and raw game-data JSON.</p>
-<details class="import-diagnostics"><summary>Raw data / parser diagnostics</summary><pre id="jsonPreview">No JSON imported yet.</pre></details>
-</div><div class="split"><div class="panel"><h2>Account status</h2><div id="summary" class="callout">Load a JSON export to see your Clamworks progression.</div><h3 style="margin-top:18px">Current pearl balance</h3><div id="pearls" style="font-size:24px;color:var(--gold);font-weight:750">—</div><div class="note">Pearl balance is stored in OptLacc[454].</div></div><div class="panel"><h2>Optimization priorities</h2><div class="callout good"><strong>Phase 1: fastest path to Worker Class 12.</strong> Prioritize reducing total expected promotion time, not maximizing EXP in isolation.</div><ul><li>Respect current point allocation and locked upgrades</li><li>Compare Scurge EXP, pearl value, and pearl upgrade cost</li><li>Account for promotion requirements and combat farming</li><li>Switch to future-content prep at Class 12</li></ul><div class="note">The combined planner now compares the next promotion against pearl-upgrade purchases and unspent Scurge Points, with explicitly provisional estimates where data is missing.</div>
-<button class="button primary" type="button" id="openAllocator" style="margin-top:15px">Open Allocation Planner</button></div></div></section>
-<section id="allocator" class="section" role="tabpanel" aria-label="Pearl and Scurge allocation planner">
-<div class="panel">
-<div class="alloc-heading"><div><div class="alloc-eyebrow">02 · CLASS 12 PROGRESSION</div><h2>Combined Allocation Planner</h2>
-<p>Decide when to buy pearl upgrades, where to put unspent Scurge Points, and when it is faster to save for promotion.</p></div><span class="pill">Promotion first</span></div>
-<div class="alloc-grid">
-<div class="alloc-stat"><div class="alloc-label">Next promotion</div><div id="pWorker" class="alloc-number green">—</div></div>
-<div class="alloc-stat"><div class="alloc-label">Current pearls</div><div id="pPearls" class="alloc-number gold">—</div></div>
-<div class="alloc-stat"><div class="alloc-label">Price per attempt</div><div id="pPromoCost" class="alloc-number">—</div></div>
-<div class="alloc-stat"><div class="alloc-label">Success chance / attempt</div><div id="pPromoChance" class="alloc-number purple">—</div></div>
-<div class="alloc-stat"><div class="alloc-label">Expected attempts</div><div id="pAttempts" class="alloc-number">—</div></div>
-<div class="alloc-stat"><div class="alloc-label">Expected pearls spent (fresh)</div><div id="pExpected" class="alloc-number gold">—</div></div>
-</div>
-<div class="alloc-summary-strip"><span>Expected additional pearl farming: <strong id="pExpectedNeed">—</strong></span><span>Baseline ETA: <strong id="pEta">—</strong></span></div>
-<div class="alloc-section">
-<h3>Farming strategy</h3>
-<p>Your setup uses separate active farming roles and AFK claims. Select which character is active right now; we will never count both active characters simultaneously.</p>
-<div class="alloc-controls">
-<label class="alloc-control">Current active focus
-<select id="pFarmFocus" style="min-height:40px;border:1px solid #3b5464;background:#112130;color:#ebf5f6;border-radius:9px;padding:9px 10px">
-<option value="pearls">Selected character · Pearl farming</option>
-<option value="scurge">Selected character · Scurge EXP farming</option>
-</select></label>
-<label class="alloc-control">Observed active pearls/hr · fallback
-<input id="pActiveRate" type="text" inputmode="decimal" placeholder="e.g. 15B" autocomplete="off"></label>
-<label class="alloc-control">Observed total AFK pearls/hr · fallback
-<input id="pAfkRate" type="text" inputmode="decimal" placeholder="e.g. 1.25T" autocomplete="off"></label>
-<label class="alloc-control">Arcane Cultist · active Scurge EXP/hr
-<input id="pScurgeRate" type="text" inputmode="decimal" placeholder="e.g. 10M" autocomplete="off"></label>
-</div>
-<div class="alloc-summary-strip">
-<span>Selected mode: <strong id="pFarmMode">Royal Guard: active pearls + AFK</strong></span>
-<span>Scurge farming rate: <strong id="pScurgeActiveRate">Not supplied</strong></span>
-</div>
-<p class="alloc-note">Character-specific rates entered below take precedence when complete. The rates above remain optional fallback observations for ETA calculations. The optimizer never counts a selected active character as AFK.</p>
-<div class="alloc-controls" style="margin-top:14px">
-<label class="alloc-control">Clam Comrades efficiency assumption
-<select id="pClamScaling" style="min-height:40px;border:1px solid #3b5464;background:#112130;color:#ebf5f6;border-radius:9px;padding:9px 10px">
-<option value="0.5">Conservative · 50% mob-count scaling</option>
-<option value="0.75">Moderate · 75%</option>
-<option value="1">Linear · 100% (optimistic)</option>
-<option value="0">No benefit from extra clams</option>
-</select></label>
-<label class="alloc-control">Scurge Point goal
-<select id="pScurgeGoal" style="min-height:40px;border:1px solid #3b5464;background:#112130;color:#ebf5f6;border-radius:9px;padding:9px 10px">
-<option value="auto">Automatically follow farming mode</option>
-<option value="promotion">Fastest next promotion (Pearls + discounts)</option>
-<option value="pearls">Maximize pearl value</option>
-<option value="exp">Maximize Scurge EXP/kill</option>
-<option value="cost">Reduce Pearl-upgrade costs</option>
-<option value="balanced">Balance Pearl value and Scurge EXP</option>
-</select></label>
-<label class="alloc-control">Maximum new Self Affliction level (optional)
-<input id="pMaxAffliction" type="number" min="0" max="9999" step="1" inputmode="numeric" placeholder="Requires measured on-map damage"></label>
-</div>
-<p class="alloc-note">The optimizer calculates the next-promotion payoff, including failed promotion attempts and upgrade resets. It can rank investments using relative gains even without an observed Pearl/hour rate. For Scurge EXP, Self Affliction is considered only when on-map damage confirms the next level remains safe.</p>
-</div>
-</div>
-<div id="characterFarming"></div>
-<div class="panel">
-<div class="alloc-section" style="margin-top:0"><div class="alloc-outcome" aria-live="polite">
-<div class="alloc-call-label">NEXT PROMOTION · INVEST OR SAVE</div><div id="pOutcome" class="alloc-decision">Import a save to begin</div><div id="pStrategy" class="alloc-explanation">Not yet calculated.</div></div>
-<div id="pPlanSteps"></div>
-<div id="pConfidence" class="alloc-warning">Upgrade prices are game-data calculated; allocation advice is provisional until full combat and progression modeling.</div>
-<div class="alloc-summary-strip"><span>Upgrade cost formulas: <strong id="pTotalCosted">0 / 9</strong></span><span>Modeled time reduction: <strong id="pModeledRateChange">—</strong></span></div>
-<div class="alloc-split" style="margin-top:12px">
-<div class="alloc-stat"><div class="alloc-label">Save immediately · ETA</div><div class="alloc-number" id="pBaselineEta">—</div></div>
-<div class="alloc-stat"><div class="alloc-label">Modeled purchase plan · ETA</div><div class="alloc-number green" id="pPlannedEta">—</div></div>
-</div></div>
-</div>
-<div class="panel">
-<div class="panel-heading"><div><div class="alloc-eyebrow">PEARL UPGRADES</div><h2>When should I stop investing?</h2></div><span class="pill">Game-data costs</span></div>
-<p class="muted" style="font-size:13px">Costs use verified game data. The search looks ahead through multiple Pearl purchases, then compares their total payoff to saving for the next promotion. A <strong>break-even cost</strong> is the highest worthwhile single-upgrade price under the chosen farm-rate assumptions; discount upgrades require multi-purchase evaluation.</p>
-<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Upgrade</th><th>Level</th><th>Next cost</th><th>Break-even cost</th><th>One-buy time impact</th></tr></thead><tbody id="pPearlRows"></tbody></table></div>
-<p class="alloc-note">The promotion search can test up to 16 future purchases, including Frugality, Anti Inflation and Clam Comrades. Multi-Scalping is evaluated only when participating characters have known multikill. Extra clams do not always mean proportionally more kills; choose the conservative setting if your map is already kill-rate limited. Absolute time estimates require observed production.</p>
-</div>
-<div class="panel">
-<div class="panel-heading"><div><div class="alloc-eyebrow">SCURGEWORKS</div><h2>How to spend remaining Scurge Points</h2></div><span class="pill purple" id="pAvailableScurge">— unspent</span></div>
-<p class="muted" style="font-size:13px">The default Pearl-farming goal now compares <strong>direct Pearl bonuses and upgrade-cost discounts</strong> by their estimated effect on time to promotion. You can also choose Pearl value, Scurge EXP, discounts or a balanced objective. Only <strong>unspent</strong> points are allocated; existing levels are preserved. Self Affliction remains restricted when its damage loss cannot be verified.</p>
-<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Scurge upgrade</th><th>Current level</th><th>Suggested +points</th></tr></thead><tbody id="pScurgeRows"></tbody></table></div>
-<div class="alloc-summary-strip"><span>Pearl farming: <strong id="pCurrentRate">Not supplied</strong></span><span>Next Scurge level: <strong id="pScurgeEta">Kills/hr needed</strong></span><span>Next Scurge point: <strong id="pNextScurge">—</strong></span></div>
-<div id="pScurgeAlternatives"></div>
-<div id="pScurgeSwitch" class="alloc-outcome" style="margin-top:12px;font-size:13px">Import your account and enter separate Pearl and Scurge farming rates to compare leveling Scurge against farming for promotion.</div>
-</div>
-<div class="panel">
-<div class="panel-heading"><div><div class="alloc-eyebrow">AFK PEARL FARMING</div><h2>Pure Pearl reroll comparison</h2></div><span class="pill purple">What-if calculator</span></div>
-<p class="muted" style="font-size:13px">When your AFK claim offers a reroll, the strategy is to <strong>keep rewards with Pure Pearls</strong> and <strong>reroll misses</strong>. Rerolls <strong>replace</strong> the previous claim; they don't add another payout. You only get the button when its actual conditions are met.</p>
-<details class="import-diagnostics">
-<summary>Compare one character’s AFK claim</summary>
-<div class="alloc-controls">
-<label class="alloc-control">AFK hours per claim<input id="pAfkClaimHours" type="text" inputmode="decimal" placeholder="e.g. 24"></label>
-<label class="alloc-control">Average ordinary pearl currency (no Pure)<input id="pAfkRegular" type="text" inputmode="decimal" placeholder="e.g. 20B"></label>
-<label class="alloc-control">Pure Pearl chance per claim (%)<input id="pAfkPurePct" type="text" inputmode="decimal" placeholder="e.g. 15"></label>
-<label class="alloc-control">Extra currency when Pure appears<input id="pAfkPureExtra" type="text" inputmode="decimal" placeholder="e.g. 1T"></label>
-<label class="alloc-control">Chance reroll button appears (%)<input id="pAfkOfferPct" type="text" inputmode="decimal" placeholder="e.g. 25"></label>
-</div>
-<details style="margin-top:10px"><summary>Advanced: replacement claim has different rewards</summary>
-<p class="alloc-note">Leave these blank if replacement rewards have the same distribution as the original claim. Enter the actual replacement claim values otherwise.</p>
-<div class="alloc-controls">
-<label class="alloc-control">Replacement ordinary pearls per claim<input id="pAfkReplacementRegular" type="text" inputmode="decimal" placeholder="Same as initial by default"></label>
-<label class="alloc-control">Replacement Pure chance (%)<input id="pAfkReplacementPurePct" type="text" inputmode="decimal" placeholder="Same as initial by default"></label>
-<label class="alloc-control">Replacement extra currency when Pure appears<input id="pAfkReplacementExtra" type="text" inputmode="decimal" placeholder="Same as initial by default"></label>
-</div></details>
-<label style="display:inline-flex;align-items:center;gap:9px;margin-top:14px;font-size:13px;color:#d5e9e0">
-<input id="pAfkAutoClaim" type="checkbox" style="width:17px;height:17px;accent-color:#58cfa0"> Auto-claim enabled (disables reroll button)
-</label>
-<div id="pAfkRerollSummary" class="alloc-outcome" style="margin-top:15px;font-size:13px;line-height:1.7">Enter AFK claim values to compare rerolling Pure Pearl misses with collecting immediately.</div>
-<p class="alloc-note">This is an expectation model for the keep-Pure / reroll-misses policy. Replacement claim distributions can be supplied in the advanced section. Actual reroll eligibility depends on your talents, guild bonuses, food and auto-claim. This comparison does not feed uncertain AFK rewards into the spending recommendations.</p>
-</details>
-</div>
+  <button type="button" class="tab active" role="tab" aria-controls="overview" aria-selected="true" data-tab="overview">Import &amp; Account</button>
+  <button type="button" class="tab" role="tab" aria-controls="allocator" aria-selected="false" data-tab="allocator">Next Class Optimizer</button>
+  <span class="nav-save-status" id="navSaveStatus">No save imported</span>
+</nav>
+<section id="overview" class="section active" role="tabpanel">
+  <div class="panel import-panel" id="importPanel">
+    <div class="panel-heading">
+      <div><div class="eyebrow">ACCOUNT DATA</div><h2>Import Idleon Toolbox JSON</h2></div>
+      <span id="importStatus" class="import-status" role="status" aria-live="polite">Waiting for data</span>
+    </div>
+    <div class="import-actions">
+      <label class="button secondary" for="file" role="button" tabindex="0" id="fileLabel">Choose JSON file</label>
+      <input id="file" type="file" accept=".json,.txt,application/json,text/plain">
+      <button type="button" class="button secondary" id="pasteToggle" aria-controls="pasteArea" aria-expanded="false">Paste JSON</button>
+      <button type="button" class="button quiet" id="clearImport">Clear</button>
+    </div>
+    <div id="pasteArea" class="paste-area hidden">
+      <textarea id="paste" spellcheck="false" aria-label="Paste game save JSON" placeholder="Paste your Idleon Toolbox export or raw game-data JSON here…"></textarea>
+      <button type="button" class="button primary" id="parse">Import JSON</button>
+    </div>
+    <p id="importFeedback" class="import-feedback hidden" role="alert"></p>
+    <p class="import-privacy">🔒 <strong>Processed locally.</strong> Your account data stays in this browser.</p>
+    <details class="import-diagnostics"><summary>Raw data and parser diagnostics</summary><pre id="jsonPreview">No JSON imported yet.</pre></details>
+  </div>
+  <div class="panel overview-snapshot">
+    <div class="panel-heading"><div><div class="eyebrow">YOUR CURRENT GOAL</div><h2>Next promotion snapshot</h2></div></div>
+    <p id="summary" class="overview-summary">Import your save to calculate the next Worker Class.</p>
+    <div class="overview-pearl"><span>Current Pearls</span><strong id="pearls">—</strong></div>
+    <button type="button" class="button primary" id="openAllocator">Open optimizer</button>
+  </div>
 </section>
-<section id="scurgeworks" class="section" role="tabpanel"><div class="panel"><h2>Scurgeworks upgrade allocation</h2><p class="muted">This is a view of the current allocation and additional unspent Scurge Points under your chosen objective. Keep your saved levels; this planner will not assume a reset. To change the objective, open the Allocation Planner.</p><div style="overflow-x:auto"><table><thead><tr><th>Upgrade</th><th>Unlock at Scurge LV</th><th>Current Level</th><th>State</th></tr></thead><tbody id="upgrades"></tbody></table></div><div id="allocationNote" class="note"></div></div></section>
-<section id="promotion" class="section" role="tabpanel"><div class="panel"><h2>Road to Worker Class 12</h2>
-<div class="callout"><strong>Each successful promotion resets temporary Clamworks upgrades.</strong> The Allocation Planner optimizes the next promotion individually. Worker Class 12 is the long-term target; future cycles will require fresh post-reset combat and production calibration.</div>
-<button class="button primary" id="openAllocatorFromPromotion" type="button" style="margin-top:14px">Open Allocation Planner</button><h3 style="margin-top:20px">Simulation milestones</h3><div id="milestones"></div><details><summary>What is estimated versus verified?</summary><ul><li>Verified: Pearl upgrade prices, Worker Class promotion prices and chances, current saved upgrade levels</li><li>Modeled: next-promotion purchase sequences and unspent Scurge Point allocation</li><li>Calibrated: absolute Pearl and EXP rates only when supplied or derived from measured kills/hour</li><li>Not yet verified: future reset-cycle kill rates, active combat mechanics and native AFK reroll rewards</li></ul></details></div></section>
-<div class="footer">Clamworks Lab · Next-promotion decision engine · Combat and AFK estimates labeled</div></main>
+<section id="allocator" class="section" role="tabpanel" aria-label="Unified Pearl and Scurge optimizer">
+  <div class="panel planner-top">
+    <div class="alloc-heading">
+      <div><div class="alloc-eyebrow">NEXT WORKER CLASS</div><h2>Unified Progression Optimizer</h2>
+        <p>Pearl purchases and Scurge allocation share one goal: reach your next Class faster.</p>
+      </div>
+      <span class="pill">Next promotion</span>
+    </div>
+    <div class="alloc-grid planner-metrics">
+      <div class="alloc-stat"><div class="alloc-label">Promotion</div><div id="pWorker" class="alloc-number green">—</div></div>
+      <div class="alloc-stat"><div class="alloc-label">Current Pearls</div><div id="pPearls" class="alloc-number gold">—</div></div>
+      <div class="alloc-stat"><div class="alloc-label">Cost per attempt</div><div id="pPromoCost" class="alloc-number">—</div></div>
+      <div class="alloc-stat"><div class="alloc-label">Success chance</div><div id="pPromoChance" class="alloc-number purple">—</div></div>
+    </div>
+    <div class="alloc-summary-strip">
+      <span>Expected additional Pearls: <strong id="pExpectedNeed">—</strong></span>
+      <span>Baseline ETA: <strong id="pEta">—</strong></span>
+    </div>
+    <details class="planner-inline-details">
+      <summary>Promotion math</summary>
+      <div class="alloc-summary-strip"><span>Expected attempts: <strong id="pAttempts">—</strong></span>
+        <span>Expected total Pearls (from zero): <strong id="pExpected">—</strong></span></div>
+    </details>
+  </div>
+
+  <div class="panel planner-decision">
+    <div class="alloc-outcome" aria-live="polite">
+      <div class="alloc-call-label">WHAT SHOULD I DO NEXT?</div>
+      <div id="pOutcome" class="alloc-decision">Import a save to begin</div>
+      <div id="pStrategy" class="alloc-explanation">Compare your next Pearl purchases and Scurge spending.</div>
+    </div>
+    <div id="pPlanSteps"></div>
+    <div class="alloc-summary-strip planner-results">
+      <span>Estimated improvement: <strong id="pModeledRateChange">—</strong></span>
+      <span>Save immediately: <strong id="pBaselineEta">—</strong></span>
+      <span>Follow plan: <strong id="pPlannedEta">—</strong></span>
+    </div>
+    <details class="planner-inline-details">
+      <summary>Accuracy and calculation assumptions</summary>
+      <div id="pConfidence" class="alloc-warning">Costs use game formulas. Production estimates require character information.</div>
+      <div class="alloc-summary-strip"><span>Cost formulas: <strong id="pTotalCosted">—</strong></span></div>
+    </details>
+  </div>
+
+  <details class="planner-setup panel" id="farmSetup">
+    <summary><span class="planner-summary-heading">Character &amp; farming setup</span>
+      <span id="farmSetupSummary" class="planner-summary-meta">Choose active character, farming mode and AFK roster</span></summary>
+    <div id="characterFarming"></div>
+  </details>
+
+  <div class="planner-dual-grid" aria-label="Unified Pearl and Scurge upgrade lists">
+    <article class="panel planner-upgrade-panel" aria-label="Pearl upgrades">
+      <div class="panel-heading">
+        <div><div class="alloc-eyebrow">PEARL UPGRADES</div><h2>What to buy before promoting</h2></div>
+        <span class="pill">Pearls</span>
+      </div>
+      <div class="alloc-scroll planner-table-scroll">
+        <table class="alloc-table planner-side-table">
+          <thead><tr><th>Upgrade</th><th>Lv</th><th>Next cost</th><th>Impact</th></tr></thead>
+          <tbody id="pPearlRows"></tbody>
+        </table>
+      </div>
+      <p class="alloc-note">Break-even prices appear beneath each upgrade. Discounts and future purchases are evaluated together.</p>
+    </article>
+    <article class="panel planner-upgrade-panel" aria-label="Scurge upgrades">
+      <div class="panel-heading">
+        <div><div class="alloc-eyebrow">SCURGEWORKS</div><h2>Where to allocate Scurge Points</h2><small id="pScurgeCurrentLevel">Scurge Lv—</small></div>
+        <span class="pill purple" id="pAvailableScurge">— unspent</span>
+      </div>
+      <label class="alloc-control planner-goal-control">Scurge objective
+        <select id="pScurgeGoal">
+          <option value="auto">Automatic · follow farming focus</option>
+          <option value="promotion">Fastest next promotion</option>
+          <option value="pearls">Pearl income only</option>
+          <option value="exp">Scurge EXP only</option>
+          <option value="cost">Upgrade discounts only</option>
+          <option value="balanced">Balanced income and EXP</option>
+        </select>
+      </label>
+      <div class="alloc-scroll planner-table-scroll">
+        <table class="alloc-table planner-side-table">
+          <thead><tr><th>Upgrade</th><th>Lv</th><th>Allocate</th></tr></thead>
+          <tbody id="pScurgeRows"></tbody>
+        </table>
+      </div>
+      <div class="planner-next-scurge">
+        <span>Next earned point</span><strong id="pNextScurge">—</strong>
+      </div>
+      <details class="planner-inline-details">
+        <summary>Compare next-point options</summary>
+        <div id="pScurgeAlternatives"></div>
+      </details>
+      <details class="planner-inline-details">
+        <summary>Scurge farming versus Pearl farming</summary>
+        <div class="alloc-summary-strip">
+          <span>Pearl farming: <strong id="pCurrentRate">—</strong></span>
+          <span>Next Scurge level: <strong id="pScurgeEta">—</strong></span>
+        </div>
+        <div id="pScurgeSwitch" class="planner-scurge-switch">Measured farming rates are needed to compare these modes.</div>
+      </details>
+    </article>
+  </div>
+
+  <details class="planner-setup panel">
+    <summary><span class="planner-summary-heading">Advanced settings &amp; observed rates</span>
+      <span class="planner-summary-meta">Optional calibration and assumptions</span></summary>
+    <div class="alloc-controls">
+      <label class="alloc-control">Active farming focus
+        <select id="pFarmFocus"><option value="pearls">Pearls</option><option value="scurge">Scurge EXP</option></select>
+      </label>
+      <label class="alloc-control">Active Pearl income / hour
+        <input id="pActiveRate" type="text" inputmode="decimal" placeholder="e.g. 15B" autocomplete="off"></label>
+      <label class="alloc-control">AFK Pearl income / hour
+        <input id="pAfkRate" type="text" inputmode="decimal" placeholder="e.g. 1.25T" autocomplete="off"></label>
+      <label class="alloc-control">Active Scurge EXP / hour
+        <input id="pScurgeRate" type="text" inputmode="decimal" placeholder="e.g. 10M" autocomplete="off"></label>
+      <label class="alloc-control">Extra clams → farming efficiency
+        <select id="pClamScaling">
+          <option value="0.5">Conservative · 50%</option>
+          <option value="0.75">Moderate · 75%</option>
+          <option value="1">Linear · 100% (optimistic)</option>
+          <option value="0">No extra-kill benefit</option>
+        </select>
+      </label>
+      <label class="alloc-control">Maximum additional Self Affliction level
+        <input id="pMaxAffliction" type="number" min="0" max="9999" step="1" inputmode="numeric"
+          placeholder="Requires measured on-map damage"></label>
+    </div>
+    <div class="alloc-summary-strip"><span>Current farming mode: <strong id="pFarmMode">—</strong></span>
+      <span>Measured Scurge rate: <strong id="pScurgeActiveRate">—</strong></span></div>
+    <p class="alloc-note">Only verified Pearl and EXP rates are used for absolute ETAs. Estimates remain relative without them. The planner never counts one character as both active and AFK.</p>
+  </details>
+
+  <details class="planner-setup panel">
+    <summary><span class="planner-summary-heading">AFK Pure Pearl reroll calculator</span>
+      <span class="planner-summary-meta">Optional claim comparison</span></summary>
+    <p class="alloc-note">Keep claims with Pure Pearls and reroll misses when eligible. Rerolls replace claims; they do not add extra payouts.</p>
+    <div class="alloc-controls">
+      <label class="alloc-control">AFK hours / claim<input id="pAfkClaimHours" type="text" inputmode="decimal" placeholder="24"></label>
+      <label class="alloc-control">Regular Pearls / claim<input id="pAfkRegular" type="text" inputmode="decimal" placeholder="20B"></label>
+      <label class="alloc-control">Pure Pearl chance (%)<input id="pAfkPurePct" type="text" inputmode="decimal" placeholder="15"></label>
+      <label class="alloc-control">Extra Pearls when Pure appears<input id="pAfkPureExtra" type="text" inputmode="decimal" placeholder="1T"></label>
+      <label class="alloc-control">Reroll offer chance (%)<input id="pAfkOfferPct" type="text" inputmode="decimal" placeholder="25"></label>
+    </div>
+    <details class="planner-inline-details">
+      <summary>Different replacement-claim rewards</summary>
+      <div class="alloc-controls">
+        <label class="alloc-control">Replacement regular Pearls<input id="pAfkReplacementRegular" type="text" inputmode="decimal" placeholder="Same as initial"></label>
+        <label class="alloc-control">Replacement Pure chance (%)<input id="pAfkReplacementPurePct" type="text" inputmode="decimal" placeholder="Same as initial"></label>
+        <label class="alloc-control">Replacement Pure bonus<input id="pAfkReplacementExtra" type="text" inputmode="decimal" placeholder="Same as initial"></label>
+      </div>
+    </details>
+    <label class="planner-check"><input id="pAfkAutoClaim" type="checkbox"> Auto-claim enabled (no reroll)</label>
+    <div id="pAfkRerollSummary" class="planner-scurge-switch">Enter AFK claim values to compare rerolls.</div>
+    <p class="alloc-note">This is a measured-reward what-if, not a full native AFK claim simulator.</p>
+  </details>
+</section>
+<div class="footer">Clamworks Lab · Next Class Optimizer · Imports stay local</div>
+</main>
 <script>
 'use strict';const NAMES=['Reckoning','Pearl Infection','Self Affliction','Cost Dissolving','Even Better','Cross Culting','Gravestart','Swarming','True Scurge'];const UNLOCKS=[0,5,10,25,50,100,250,500,1000];let profile=null;
 const $=id=>document.getElementById(id);function fmt(n){
@@ -235,6 +303,10 @@ function showTab(tab){
     el.setAttribute('aria-selected',String(selected));
   });
   document.querySelectorAll('.section').forEach(el=>el.classList.toggle('active',el.id===tab));
+  // The imported-account KPI strip belongs to the Import view. The optimizer
+  // has its own compact promotion metrics, so don't repeat the same cards.
+  const kpis=$('accountKpis');
+  if(kpis)kpis.classList.toggle('hidden',tab==='allocator');
 }
 function setImportStatus(text,kind='neutral'){
   const badge=$('importStatus');
@@ -254,34 +326,28 @@ function setPasteOpen(open){
   if(open)$('paste').focus();
 }
 function renderEmpty(){
-  $('worker').textContent='—';$('scurge').textContent='—';$('pearls').textContent='—';$('available').textContent='—';
-  $('goalFlag').textContent='Awaiting save';$('bar').style.width='0%';$('steps').innerHTML='';
-  $('summary').textContent='Load a JSON export to see your Clamworks progression.';
-  $('upgrades').innerHTML='';$('allocationNote').textContent='';$('milestones').innerHTML='';
+  $('worker').textContent='—';$('nextWorker').textContent='—';
+  $('scurge').textContent='—';$('available').textContent='—';
+  $('heroTarget').textContent='Worker Class — → —';
+  $('summary').textContent='Import your save to calculate the next Worker Class.';
+  $('pearls').textContent='—';
 }
 function render(){
   const p=profile;
-  if(!p){renderEmpty();return}
-  $('worker').textContent=fmt(p.worker);$('scurge').textContent=fmt(p.scurge);
+  if(!p){renderEmpty();return;}
+  const worker=Math.max(0,Math.floor(Number(p.worker)||0));
+  const next=worker+1;
+  const spent=p.levels.reduce((sum,value)=>sum+value,0);
+  const free=Math.max(0,p.scurge-spent);
+  $('worker').textContent=fmt(worker);
+  $('nextWorker').textContent=fmt(next);
+  $('heroTarget').textContent='Worker Class '+worker+' → '+next;
+  $('scurge').textContent=fmt(p.scurge);
+  $('available').textContent=fmt(free);
   $('pearls').textContent=fmt(p.pearls);
-  const spent=p.levels.reduce((a,b)=>a+b,0);
-  $('available').textContent=fmt(Math.max(0,p.scurge-spent));
-  $('goalFlag').textContent=p.worker>=12?'Target reached':'Class '+p.worker+' → 12';
-  $('bar').style.width=(Math.min(100,Math.max(0,p.worker/12*100)))+'%';
-  const start=Math.max(0,Math.min(12,p.worker));
-  $('steps').innerHTML=Array.from({length:Math.max(1,12-start+1)},(_,i)=>{
-    const lv=start+i;
-    return '<div class="step '+(i===0?'active':'future')+'"><strong>Class '+lv+'</strong><small>'+(i===0?'Current':lv===12?'Goal':'Next promotion')+'</small></div>';
-  }).join('');
-  $('summary').innerHTML=p.worker>=12?'<strong>Worker Class 12 reached!</strong> Future-content preparation mode is ready for development.':'<strong>'+(12-p.worker)+' promotion'+(12-p.worker===1?'':'s')+' remain</strong> to Worker Class 12. Current Scurge Level: '+fmt(p.scurge)+'. Your existing upgrade allocation consumes '+fmt(spent)+' points.';
-  $('upgrades').innerHTML=NAMES.map((name,i)=>'<tr><td><strong>'+name+'</strong></td><td>'+fmt(UNLOCKS[i])+'</td><td><span class="bubble '+(p.levels[i]?'purple':'')+'">'+fmt(p.levels[i])+'</span></td><td>'+(p.scurge>=UNLOCKS[i]?'<span style="color:var(--green)">Unlocked</span>':'<span class="muted">Locked</span>')+'</td></tr>').join('');
-  $('allocationNote').textContent=fmt(spent)+' allocated across 9 upgrades · '+fmt(Math.max(0,p.scurge-spent))+' estimated unspent points (assuming one point per level and no alternate point sources).';
-  $('milestones').innerHTML=Array.from({length:Math.max(0,12-p.worker)},(_,i)=>{
-    const level=p.worker+i;
-    const cost=1e5*Math.pow(10,level);
-    const chance=0.5/(2+level);
-    return '<div class="step" style="text-align:left;margin:8px 0"><strong>Worker Class '+level+' → '+(level+1)+'</strong><small>Promotion attempt: '+fmt(cost)+' pearls · '+(100*chance).toFixed(2)+'% success chance · '+fmt(cost/chance)+' expected pearls before savings and new upgrades</small></div>';
-  }).join('')||'<div class="callout good">Worker Class 12 achieved.</div>';
+  $('summary').textContent='You are optimizing Worker Class '+worker+' → '+next+
+    '. Current Scurge Lv'+fmt(p.scurge)+' · '+fmt(free)+
+    ' unspent points. The recommendation targets only this next promotion.';
 }
 function load(raw,fromDemo=false){
   const next=parseSave(raw);
@@ -292,7 +358,7 @@ function load(raw,fromDemo=false){
   $('navSaveStatus').textContent=fromDemo?'Demo data loaded':next.source+' imported';
   setFeedback('Loaded '+sourceLabel+' successfully. Your account dashboard is ready.');
   $('jsonPreview').textContent='Source: '+sourceLabel+'\nWorker Class: '+next.worker+'\nScurge Level: '+next.scurge+'\nPearl balance: '+fmt(next.pearls)+'\nScurgeworks levels: '+next.levels.join(', ')+'\nOnly Clamworks fields are displayed here.';
-  showTab('overview');
+  showTab('allocator');
   window.ClamworksPlanner?.onSave(profile);
   window.ClamworksFarming?.onSave(raw);
 }
@@ -309,7 +375,7 @@ $('goImport').addEventListener('click',()=>{
   showTab('overview');
   $('importPanel').scrollIntoView({block:'start',behavior:'smooth'});
 });
-for(const id of ['openAllocator','openAllocatorFromPromotion'])$(id).addEventListener('click',()=>showTab('allocator'));
+$('openAllocator').addEventListener('click',()=>showTab('allocator'));
 $('pasteToggle').addEventListener('click',()=>setPasteOpen($('pasteArea').classList.contains('hidden')));
 $('parse').addEventListener('click',()=>{
   try{
@@ -350,4 +416,4 @@ $('sample').addEventListener('click',()=>{
   }catch(error){handleImportError(error)}
 });
 // All examples are fictional. Imported account data is never sent to the server.
-</script><script src="optimizer-engine.js?v=0.4"></script><script src="planner.js?v=1.6"></script><script src="combat-math.js?v=0.1"></script><script src="combat-stats.js?v=0.1"></script><script src="farming.js?v=0.5"></script></body></html>
+</script><script src="optimizer-engine.js?v=0.4"></script><script src="planner.js?v=1.7"></script><script src="combat-math.js?v=0.1"></script><script src="combat-stats.js?v=0.1"></script><script src="farming.js?v=0.6"></script></body></html>
