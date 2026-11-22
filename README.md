@@ -20,7 +20,8 @@ The current class is always read from the newest JSON, and each import navigates
 - **Next Scurge Point:** previews the best allocation after the next level, including a table comparing each unlocked Pearl-value or cost-discount option by its modeled effect on next-promotion time. For example, Cross Culting cannot lower Encystation Up costs while Gravestart is Lv0.
 - **Scurge EXP:** computes EXP per actual Clamworks kill, current level progress, nearby-player Swarming input, and calibrated level-up ETA when kills/hour are known.
 - **Pearl versus Scurge:** with separate observed Pearl/AFK/Scurge rates, compares spending time on the next Pearl-value Scurge Point against farming the promotion; when Scurge EXP/hour is missing, it can show the minimum required EXP/hour.
-- **Character audit:** automatically displays saved combat inputs, sourced multikill contributions, Clamworks enemy HP, World 7 overkill math, and the Self Affliction damage penalty. Off-map damage estimates are explicitly provisional.
+- **Automatic multikill source extraction:** reads the Death Note building, Purple Salt Lick, and three relevant achievement bonuses from the original save, totaling and World 7-scaling the **known raw base**. It never mislabels this subtotal as complete Multikill. Additional damage, per-tier and remaining-base values are still necessary for a full number; measured multikill can override the estimate. An explicit source breakdown is displayed for every selected character.
+- **Character audit:** displays saved combat inputs, sourced multikill contributions, Clamworks enemy HP, World 7 overkill math, and the Self Affliction damage penalty. Off-map damage estimates are explicitly provisional.
 - **AFK reroll:** an optional analytic keep-Pure/reroll-misses comparison, including different replacement-claim reward distributions and auto-claim disabling rerolls.
 
 ## How to use
