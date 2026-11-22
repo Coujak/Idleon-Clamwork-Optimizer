@@ -159,20 +159,32 @@
     }
     return lo;
   }
-  function afkRerollEstimate({ regular, pureChance, pureExtra, offerChance, hours, autoClaim=false }) {
-    // Simplified policy: keep any claim with Pure Pearls, otherwise reroll if offered.
-    // Each rerolled claim is assumed to have the same probability and reward distribution.
-    // In-game replacement tables can differ, so do NOT substitute this for the native AFK worker.
-    if (![regular,pureChance,pureExtra,offerChance,hours].every(Number.isFinite)
-      || regular<0 || pureExtra<0 || pureChance<0 || pureChance>1
-      || offerChance<0 || offerChance>1 || hours<=0) return null;
-    const q=autoClaim?0:offerChance;
-    const probability=pureChance>0 ? pureChance/(1-q*(1-pureChance)) : 0;
-    const base=regular+pureChance*pureExtra;
-    const withRerolls=regular+probability*pureExtra;
-    return {base,withRerolls,probability,gain:withRerolls-base,
-      extraPerHour:(withRerolls-base)/hours,expectedRerolls:pureChance>0?
-        q*(1-pureChance)/(1-q*(1-pureChance)):q===1?Infinity:q/(1-q)};
+  function afkRerollEstimate({
+    regular,pureChance,pureExtra,offerChance,hours,autoClaim=false,
+    replacementRegular=null,replacementPureChance=null,replacementPureExtra=null
+  }) {
+    // Markov model: keep claims containing Pure; each other claim has probability q
+    // of being discarded and replaced. Replacements can have different loot tables.
+    // Expected regular payouts are unconditional over a claim's drop distribution.
+    const r0=regular,p0=pureChance,v0=pureExtra,q=autoClaim?0:offerChance;
+    const rr=Number.isFinite(replacementRegular)?replacementRegular:r0;
+    const pr=Number.isFinite(replacementPureChance)?replacementPureChance:p0;
+    const vr=Number.isFinite(replacementPureExtra)?replacementPureExtra:v0;
+    if(![r0,p0,v0,q,hours,rr,pr,vr].every(Number.isFinite)||
+      r0<0||v0<0||rr<0||vr<0||hours<=0||p0<0||p0>1||
+      pr<0||pr>1||q<0||q>1)return null;
+    const base=r0+p0*v0;
+    if(q===0||p0===1)return {base,withRerolls:base,probability:p0,gain:0,
+      extraPerHour:0,expectedRerolls:0,replacementDistinct:rr!==r0||pr!==p0||vr!==v0};
+    const denom=1-q*(1-pr);
+    if(denom<=1e-15)return null; // Endless replacement loop without Pure reward.
+    const rerolledExpected=rr+(pr*vr)/denom;
+    const end=base+q*(1-p0)*(rerolledExpected-r0);
+    const chance=p0+q*(1-p0)*pr/denom;
+    const rolls=q*(1-p0)/denom;
+    return {base,withRerolls:end,probability:chance,
+      gain:end-base,extraPerHour:(end-base)/hours,
+      expectedRerolls:rolls,replacementDistinct:rr!==r0||pr!==p0||vr!==v0};
   }
   function renderReroll() {
     const read=id=>document.getElementById(id).value.trim();
@@ -183,7 +195,10 @@
       regular:amount('pAfkRegular'),
       pureChance:pct('pAfkPurePct'), pureExtra:amount('pAfkPureExtra'),
       offerChance:pct('pAfkOfferPct'), hours:amount('pAfkClaimHours'),
-      autoClaim:document.getElementById('pAfkAutoClaim').checked
+      autoClaim:document.getElementById('pAfkAutoClaim').checked,
+      replacementRegular:read('pAfkReplacementRegular')===''?null:amount('pAfkReplacementRegular'),
+      replacementPureChance:read('pAfkReplacementPurePct')===''?null:pct('pAfkReplacementPurePct'),
+      replacementPureExtra:read('pAfkReplacementExtra')===''?null:amount('pAfkReplacementExtra')
     });
     const node=$('pAfkRerollSummary');
     if(!result){
@@ -204,95 +219,249 @@
     return (hours/24).toFixed(1)+' days';
   }
   function show(id,value){const el=$(id);if(el)el.textContent=value;}
+  function effectiveMode(){
+    const value=$('pScurgeGoal')?.value||'auto';
+    return value==='auto'?(activeFocus==='scurge'?'exp':'pearls'):value;
+  }
+  function selectedRates(){
+    const activeSelected=characterModel&&finite(characterModel.activePearlsPerHour)?
+      characterModel.activePearlsPerHour:activePearlsPerHour;
+    const afkSelected=characterModel&&finite(characterModel.afkPearlsPerHour)?
+      characterModel.afkPearlsPerHour:afkPearlsPerHour;
+    const active=activeFocus==='pearls'&&finitePositive(activeSelected)?activeSelected:0;
+    const afk=finitePositive(afkSelected)?afkSelected:0;
+    const covered=!characterModel||characterModel.coverage===1||
+      finitePositive(afkPearlsPerHour);
+    return {active,afk,total:active+afk,known:covered&&finitePositive(active+afk)};
+  }
+  function productionSources(engine){
+    if(!engine)return [];
+    const p=state,chosen=characterModel;
+    const sourceRows=chosen?.sources;
+    if(Array.isArray(sourceRows)&&sourceRows.length){
+      const entries=[];
+      let missing=false;
+      for(const row of sourceRows){
+        const mk=Number.isFinite(row.multikill)&&row.multikill>=0?row.multikill:null;
+        if(row.id==='unmeasured-afk'){missing=true;continue;}
+        const raw=engine.benefit(p.pearlLevels,p.scurgeLevels,p.worker,p.scurge,mk,1);
+        if(Number.isFinite(row.pearlsPerHour)&&row.pearlsPerHour>0){
+          // Reweight from observed total pearl yield to relative kill throughput.
+          entries.push({weight:row.pearlsPerHour/(raw||1),multikill:mk});
+        }else if(Number.isFinite(row.killsPerHour)&&row.killsPerHour>0){
+          entries.push({weight:row.killsPerHour,multikill:mk});
+        }
+      }
+      if(missing||entries.length){
+        if(missing)entries.push({weight:1,multikill:null});
+        return entries;
+      }
+    }
+    return [{weight:1,multikill:Number.isFinite(chosen?.activeMultikill)?
+      chosen.activeMultikill:null}];
+  }
+  function relativeGainFor(engine,base,levels,options){
+    const next=engine.production(levels,state.scurgeLevels,state.worker,state.scurge,options);
+    if(!next||!next.value||!base?.value)return null;
+    return next.value/base.value;
+  }
   function render() {
     if(!state){
-      ['pWorker','pPearls','pPromoCost','pPromoChance','pAttempts','pExpected'].forEach(id=>show(id,'—'));
-      $('pOutcome').textContent='Import a save to calculate your current promotion target.';
+      ['pWorker','pPearls','pPromoCost','pPromoChance','pAttempts','pExpected',
+        'pExpectedNeed','pEta','pCurrentRate','pBaselineEta','pPlannedEta',
+        'pModeledRateChange','pScurgeActiveRate'].forEach(id=>show(id,'—'));
+      $('pOutcome').textContent='Import a save to calculate your next promotion.';
       $('pPearlRows').innerHTML='';
       $('pScurgeRows').innerHTML='';
-      $('pStrategy').innerHTML='Import a JSON save to begin.';
+      $('pStrategy').textContent='Import an IT JSON export to begin.';
+      if($('pPlanSteps'))$('pPlanSteps').innerHTML='';
+      if($('pScurgeSwitch'))$('pScurgeSwitch').textContent='Import an IT JSON to compare Pearl farming with Scurge leveling.';
+      if($('pAvailableScurge'))show('pAvailableScurge','—');
+      if($('pScurgeEta'))show('pScurgeEta','—');
       return;
     }
+    const engine=window.ClamworksOptimization;
     const promo=promotion(state.worker);
+    const rateInfo=selectedRates();
+    const remainingPearls=expectedNeed(state.pearls,promo.cost,promo.chance);
+    const calibrated=rateInfo.known;
+    const rawAlpha=$('pClamScaling')?.value;
+    const alpha=rawAlpha!==undefined?Number(rawAlpha):0.5;
+    const sources=productionSources(engine);
+    const options={sources,clamExponent:alpha,
+      observedRate:calibrated?rateInfo.total:null,depth:16,width:55};
+    const estimate=engine?.planPearls(state,options)||null;
+    const scurgeMode=effectiveMode();
+    const rawMax=$('pMaxAffliction')?.value?.trim()??'';
+    const maxAffliction=rawMax!==''?Number(rawMax):null;
+    const scurge=engine?.optimizeScurge(state,{mode:scurgeMode,
+      otherPlayers:characterModel?.otherPlayers??0,
+      maxDamage:characterModel?.onMapDamage??null,
+      maxAffliction:Number.isSafeInteger(maxAffliction)&&maxAffliction>=0?
+        maxAffliction:null})||null;
+    const nextScurge=engine?.previewNextScurge(state,{
+      mode:scurgeMode,otherPlayers:characterModel?.otherPlayers??0,
+      maxDamage:characterModel?.onMapDamage??null,
+      maxAffliction:Number.isSafeInteger(maxAffliction)&&maxAffliction>=0?
+        maxAffliction:null})||null;
+    const xpRate=characterModel&&finitePositive(characterModel.activeScurgeExpPerHour)?
+      characterModel.activeScurgeExpPerHour:activeScurgeExpPerHour;
     show('pWorker','Class '+state.worker+' → '+(state.worker+1));
     show('pPearls',fmt(state.pearls));
     show('pPromoCost',fmt(promo.cost));
     show('pPromoChance',(100*promo.chance).toFixed(2)+'%');
     show('pAttempts',promo.expectedAttempts.toFixed(1));
     show('pExpected',fmt(promo.expectedCost));
-    const calibrated=costModel();
-    const estimate=simulate(state,state.scurgeLevels,calibrated,3);
-    const scurge=allocateScurge(state,calibrated);
-    const after=simulate(state,scurge.allocation,calibrated,3);
-    const baseCost=estimate?estimate.baseline:NaN;
-    const bestAfter=after?after.best.score:NaN;
-    const baseRate=estimate?.baseRate||NaN;
-    const remainingPearls=expectedNeed(state.pearls,promo.cost,promo.chance);
-    const selectedRate=characterModel&&finite(characterModel.activePearlsPerHour)?characterModel.activePearlsPerHour:activePearlsPerHour;
-    const afkSelected=characterModel&&finite(characterModel.afkPearlsPerHour)?characterModel.afkPearlsPerHour:afkPearlsPerHour;
-    const baseActive=activeFocus==='pearls'&&finitePositive(selectedRate)?selectedRate:0;
-    const baseAfk=finitePositive(afkSelected)?afkSelected:0;
-    const rate=baseActive+baseAfk;
-    // A partially calibrated AFK list is not a complete account income rate.
-    const completeAfk=!characterModel||characterModel.coverage===1||finitePositive(afkPearlsPerHour);
-    const hasRate=finitePositive(rate)&&completeAfk;
     show('pExpectedNeed',fmt(remainingPearls));
-    show('pEta',hasRate?hoursText(remainingPearls/rate):'Enter farming rates');
-    const scurgeRate=characterModel&&finitePositive(characterModel.activeScurgeExpPerHour)?characterModel.activeScurgeExpPerHour:activeScurgeExpPerHour;
-    show('pScurgeActiveRate',finitePositive(scurgeRate)?fmt(scurgeRate)+'/hr':'Not supplied');
-    show('pFarmMode',(characterModel?.selectedName||'Selected character')+(activeFocus==='pearls'?': active pearls + AFK':': Scurge EXP + AFK pearls'));
-    let status='', details='';
+    show('pEta',calibrated?hoursText(remainingPearls/rateInfo.total):'Rate calibration needed');
+    show('pCurrentRate',calibrated?fmt(rateInfo.total)+'/hr':'Relative model only');
+    show('pScurgeActiveRate',finitePositive(xpRate)?fmt(xpRate)+'/hr':'Not supplied');
+    show('pFarmMode',(characterModel?.selectedName||'Selected character')+
+      (activeFocus==='pearls'?': active pearls + eligible AFK':': active Scurge + eligible AFK'));
+    show('pTotalCosted','9 / 9 verified formulas');
+    const nextXP=characterModel?.activeScurgeHoursToNext;
+    show('pScurgeEta',finite(nextXP)?hoursText(nextXP):'Kills/hr needed');
+    show('pNextScurge',nextScurge?
+      ('Lv'+nextScurge.level+' → '+nextScurge.name):'No available next-point allocation');
+    const pearlActive=finitePositive(activePearlsPerHour)?activePearlsPerHour:
+      (activeFocus==='pearls'&&finitePositive(characterModel?.activePearlsPerHour)?
+        characterModel.activePearlsPerHour:null);
+    const pearlAfk=finitePositive(afkPearlsPerHour)?afkPearlsPerHour:
+      (characterModel?.coverage===1&&finite(characterModel?.afkPearlsPerHour)?
+        characterModel.afkPearlsPerHour:null);
+    const compareScurge=engine?.switchToScurge(state,{
+      activePearlsPerHour:pearlActive,
+      afkPearlsPerHour:pearlAfk,
+      scurgeExpPerHour:finitePositive(xpRate)?xpRate:null,
+      nextPoint:engine?.previewNextScurge(state,{mode:'pearls'})||null
+    });
+    if($('pScurgeSwitch')){
+      if(!compareScurge?.available){
+        $('pScurgeSwitch').textContent='Scurge vs Pearl farming: enter separate observed active Pearl/hr, AFK Pearl/hr, and optionally Scurge EXP/hr to compare farming your next Scurge Point. '+(compareScurge?.reason||'');
+      }else if(compareScurge.worthwhile===null){
+        $('pScurgeSwitch').textContent='Scurge vs Pearl farming: earn the next Pearl-value point ('+compareScurge.nextPoint+') only if your Scurge EXP rate is at least '+fmt(compareScurge.minimumExpPerHour)+'/hr. This would take no more than '+hoursText(compareScurge.maxProfitableHours)+'. Add the measured Scurge EXP/hr to get a recommendation.';
+      }else{
+        $('pScurgeSwitch').textContent=(compareScurge.worthwhile?
+          'Consider Scurge leveling first':'Focus on Pearls instead of Scurge right now')+
+          ': the next '+compareScurge.nextPoint+' point requires '+hoursText(compareScurge.scurgeHours)+
+          ' at your Scurge rate. Compared with farming Pearls continuously, the projected time change to promotion is '+
+          (compareScurge.timeSavedHours>=0?'-':'+')+
+          hoursText(Math.abs(compareScurge.timeSavedHours))+
+          '. Assumes the same AFK roster and unchanged combat throughput.';
+      }
+    }
+    const activeMode=activeFocus==='pearls';
+    let status='',details='';
     if(state.worker>=12){
       status='Worker Class 12 reached';
-      details='Switch your objective to permanent progression and future-content preparation.';
+      details='Your current promotion milestone is achieved. Temporary upgrades and Scurge allocations can now be optimized for long-term goals.';
     }else if(!estimate){
-      status='Need a valid account snapshot';
-    }else if(activeFocus==='scurge'){
-      status='Scurge farming focus — pearl allocation is provisional';
-      details='While Arcane Cultist is active, only AFK pearl earnings are included in the displayed pearl-rate estimate. We have not yet modeled how Scurge EXP unlocks future points or changes your class-12 timeline. Switch to the Royal Guard pearl-farming focus for the provisional spend-versus-save comparison.';
-    }else if(after.best.history.length){
+      status='Unable to calculate a trustworthy spending comparison';
+      details='Check your imported Clamworks upgrade and promotion data.';
+    }else if(estimate.best.history.length){
+      const seq=estimate.best.history.map(row=>row.name+' '+row.from+'→'+row.to);
       status='Invest before saving';
-      details='Candidate: '+after.best.history.map(x=>PEARL[x.i]+' +1').join(' → ')+'. Estimated saving versus starting to save now: '+((1-bestAfter/baseCost)*100).toFixed(2)+'% of modeled remaining farming time.';
+      details='Purchase sequence: '+seq.slice(0,8).join(' → ')+
+        (seq.length>8?' → '+(seq.length-8)+' more':'')+
+        '. After these purchases, save for the promotion. Modeled saving: '+
+        estimate.relativeImprovementPct.toFixed(2)+'% versus saving immediately.';
     }else{
-      status='Save pearls for promotion';
-      details='Within the compared purchase sequences, buying more pearl upgrades does not shorten expected time to promotion. Save toward '+fmt(promo.cost)+' pearls per attempt.';
+      status='Save for the next promotion';
+      details='Under the selected production assumptions, no tested upgrade sequence shortens the expected time to promotion. Save pearls for each promotion attempt.';
     }
-    if(scurge.moves.length){
-      const allocationText=[...new Set(scurge.moves)].map(i=>SCURGE[i]+' +'+scurge.moves.filter(x=>x===i).length).join(', ');
-      details+=' Suggested free Scurge Points for the promotion push: '+allocationText+'.';
+    if(scurge&&scurge.moves.length){
+      const distribution=scurge.distribution.filter(d=>d.delta>0).map(d=>d.name+' +'+d.delta);
+      details+=' Unspent Scurge Points: '+distribution.join(', ')+
+        ' ('+scurgeMode+' objective; no existing allocations are moved).';
     }
+    if(scurge?.unsafeExcluded&&scurgeMode==='exp'){
+      details+=' Self Affliction was excluded without enough verified on-map damage to confirm that extra levels are safe.';
+    }
+    if(!calibrated)details+=' The purchase ORDER is based on relative pearl yield; absolute times require observed income.';
+    if(!estimate?.support?.haveMK)details+=' Multi-Scalping is excluded until participating characters have known total multikill.';
+    if(!activeMode)details+=' Pearl recommendations consider AFK income; the active character is assigned to Scurge progression.';
     $('pOutcome').textContent=status;
-    $('pStrategy').textContent=details || 'No further modeled improvement found.';
-    $('pConfidence').textContent='GAME-DATA COSTS VERIFIED. The new combat panel calculates World 7 overkill/multikill from supplied damage and raw MK components, and Scurge EXP from actual kill rates. Exact per-character damage, raw multikill components, kills/hr and AFK claim yields are not automatically reconstructed from this IT JSON. Purchase ranking remains PROVISIONAL (three levels of pearl purchases; no full combat, AFK or Class 12 cycles).';
+    $('pStrategy').textContent=details;
+    if($('pPlanSteps')){
+      const steps=estimate?.best?.history||[];
+      if(state.worker>=12){
+        $('pPlanSteps').innerHTML='';
+      }else if(!steps.length){
+        $('pPlanSteps').innerHTML='<div class="alloc-outcome" style="margin-top:10px">'+
+          '<strong>Next action:</strong> Save for promotion. Each attempt costs '+fmt(promo.cost)+
+          ' Pearls. Success resets temporary Clamworks upgrades.</div>';
+      }else{
+        $('pPlanSteps').innerHTML='<details style="margin-top:12px" open>'+
+          '<summary>Recommended purchase sequence ('+steps.length+' purchases)</summary>'+
+          '<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Step</th><th>Buy</th><th>Price</th><th>Projected yield increase</th></tr></thead><tbody>'+
+          steps.slice(0,16).map((a,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+a.name+
+            ' Lv'+a.from+'→'+a.to+'</strong></td><td class="numeric">'+fmt(a.cost)+
+            '</td><td class="numeric">+'+a.rateGainPct.toFixed(2)+'%</td></tr>').join('')+
+          '</tbody></table></div><p class="alloc-note">Re-import a fresh IT JSON after buying upgrades to recalculate the remaining plan. Prices and yields change after purchases and promotions.</p></details>';
+      }
+    }
+    const intro='Decision model: game-data costs, promotion chance and reset, '+
+      '16-step beam search, Clam Comrades throughput and the imported Pearl/Scurge bonuses.';
+    $('pConfidence').textContent=intro+' '+
+      (calibrated?'Income is calibrated to observed Pearl production. ':
+        'No complete Pearl/hr rate: recommendations have relative, not absolute, timing. ')+
+      'Clam Comrades assumes '+Math.round(alpha*100)+'% of ideal logarithmic mob-count scaling. '+
+      'This is an approximate throughput effect, not a full combat simulation. '+
+      'Pure Pearl AFK reroll behavior is not included in upgrade forecasts. '+
+      'Promotions reset temporary upgrades; multi-promotion combat and rate dynamics are not fully simulated.';
+    if(estimate){
+      show('pModeledRateChange',estimate.relativeImprovementPct.toFixed(2)+'% faster (model)');
+      show('pBaselineEta',calibrated?hoursText(estimate.baselineAbsoluteHours):'Relative only');
+      show('pPlannedEta',calibrated?hoursText(estimate.bestAbsoluteHours):'Relative only');
+    }else{
+      show('pModeledRateChange','—');show('pBaselineEta','—');show('pPlannedEta','—');
+    }
+    const base=engine?.production(state.pearlLevels,state.scurgeLevels,state.worker,state.scurge,options);
     $('pPearlRows').innerHTML=PEARL.map((name,i)=>{
-      const current=state.pearlLevels[i];
-      const cost=nextCost(state,state.pearlLevels,state.scurgeLevels,calibrated,i);
-      const action=estimate?.firstActions.find(row=>row.history[0].i===i);
-      const pct=action?100*(1-action.score/estimate.baseline):NaN;
-      const note=(i===1)?'Kill-rate model pending':(i===3)?'Multikill model pending':
-        (i===4||i===8)?'Indirect: discounts future purchases':'Game-data price';
-      const threshold=breakEvenCost(state,state.scurgeLevels,i);
-      const cutoff=i===4||i===8?'Sequence-dependent':i===1||i===3?'Combat-dependent':finite(threshold)?fmt(threshold):'—';
+      const current=state.pearlLevels[i],accessible=state.pearlUnlocked>=i||current>0;
+      const price=nextCost(state,state.pearlLevels,state.scurgeLevels,costModel(),i);
+      const afterLevels=state.pearlLevels.slice();afterLevels[i]++;
+      const cap=i===1&&current>=23;
+      const ratio=relativeGainFor(engine,base,afterLevels,options);
+      const improvement=estimate?.firstActions.find(row=>row.history[0]?.index===i);
+      const impact=improvement&&estimate?.baseline>0?
+        100*(1-improvement.score/estimate.baseline):null;
+      const cutoff=!accessible||cap?'—':(i===4||i===8?'Sequence-dependent':
+        (i===3&&!estimate?.support.haveMK?'Need multikill':
+        ratio!==null&&ratio>1.000000001?
+          fmt(engine.singleBuyCutoff(state.pearls,estimate?.promotion||promo,ratio)):'No positive gain'));
+      const note=i===1?'Clam count (throughput assumption)':
+        i===3?(estimate?.support.haveMK?'Character multikill modeled':'Missing participating multikill'):
+        i===4||i===8?'Discounts future upgrades':'Verified cost / yield formula';
+      const display=cap?'At 25-clam cap':accessible&&finite(price)?fmt(price):'Locked';
       return '<tr><td><strong>'+name+'</strong><div class="mini-note">'+note+'</div></td>'+
         '<td><span class="bubble">'+fmt(current)+'</span></td>'+
-        '<td class="numeric">'+(accessible(state,state.pearlLevels,i)&&finite(cost)?fmt(cost):'Locked')+'</td>'+
+        '<td class="numeric">'+display+'</td>'+
         '<td class="numeric">'+cutoff+'</td>'+
-        '<td class="numeric">'+(finite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'—')+'</td></tr>';
+        '<td class="numeric">'+(impact===null?'—':(impact>0?'+':'')+impact.toFixed(2)+'%')+'</td></tr>';
     }).join('');
-    $('pScurgeRows').innerHTML=SCURGE.map((name,i)=>{
-      const delta=scurge.allocation[i]-state.scurgeLevels[i];
-      const locked=state.scurge<S_UNLOCK[i];
-      return '<tr><td><strong>'+name+'</strong><div class="mini-note">'+(locked?'Unlocks at Scurge '+S_UNLOCK[i]:(i===0||i===2||i===4||i===6||i===7?'EXP or combat benefit not modeled for promotions':'Pearl or upgrade-cost benefit'))+'</div></td>'+
-        '<td><span class="bubble'+(state.scurgeLevels[i]?' purple':'')+'">'+fmt(state.scurgeLevels[i])+'</span></td>'+
-        '<td class="numeric">'+(locked?'Locked':delta?'+'+delta:'—')+'</td></tr>';
-    }).join('');
-    show('pAvailableScurge',scurge.free+' unspent');
-    show('pCurrentRate',hasRate?fmt(rate)+'/hr':'Not supplied');
-    show('pModeledRateChange',finitePositive(bestAfter)&&finitePositive(baseCost)?(100*(1-bestAfter/baseCost)).toFixed(2)+'% best modeled time reduction':'—');
-    show('pTotalCosted','9 / 9 loaded');
-    show('pBaselineEta',hasRate?hoursText(remainingPearls/rate):'Not available');
-    show('pPlannedEta',hasRate&&estimate&&after&&activeFocus==='pearls'?hoursText(bestAfter*baseRate/rate):'Not available');
-    // The cost-growth constants come from public game data, not imported private saves.
+    if(scurge){
+      $('pScurgeRows').innerHTML=scurge.distribution.map(row=>'<tr><td><strong>'+
+        row.name+'</strong><div class="mini-note">'+(row.unlocked?
+        (row.index===2?'Damage reduction; never auto-assumed safe':
+        row.index===7?'Nearby players: '+(characterModel?.otherPlayers??0):
+        'Game-data bonus'):'Unlocks at Scurge Lv'+(engine.UNLOCKS[row.index]))+
+        '</div></td><td><span class="bubble'+(row.from?' purple':'')+'">'+fmt(row.from)+
+        '</span></td><td class="numeric">'+(row.unlocked?(row.delta?'+'+row.delta:'—'):'Locked')+'</td></tr>').join('');
+      show('pAvailableScurge',scurge.free+' unspent · '+scurge.spent+' suggested');
+      const rows=$('upgrades');
+      if(rows)rows.innerHTML=scurge.distribution.map(row=>'<tr><td><strong>'+row.name+
+        '</strong></td><td>'+engine.UNLOCKS[row.index]+'</td><td>'+
+        fmt(row.from)+'</td><td>'+(row.unlocked?
+        (row.delta?'Suggested +'+row.delta:'No additional points'):'Locked')+'</td></tr>').join('');
+      const note=$('allocationNote');
+      if(note)note.textContent='Objective: '+scurgeMode+
+        '. '+scurge.free+' unspent points. Existing levels stay fixed; '+
+        scurge.spent+' suggested for '+scurge.distribution.filter(d=>d.delta>0).map(d=>d.name).join(', ')+
+        '. '+(nextScurge?'Next earned point (Scurge Lv'+nextScurge.level+'): '+
+          nextScurge.name+'. ':'')+
+        'Self Affliction requires confirmed damage before it can be considered. Nearby players are not saved in IT JSON.';
+    }
   }
   function onSave(profile) {
     state=profile||null;
@@ -323,7 +492,8 @@
       if(window.ClamworksFarming?.setFocus){window.ClamworksFarming.setFocus(activeFocus)}
       else render();
     });
-    for(const id of ['pAfkRegular','pAfkPurePct','pAfkPureExtra','pAfkOfferPct','pAfkClaimHours','pAfkAutoClaim']){
+    for(const id of ['pAfkRegular','pAfkPurePct','pAfkPureExtra','pAfkOfferPct','pAfkClaimHours','pAfkAutoClaim',
+      'pAfkReplacementRegular','pAfkReplacementPurePct','pAfkReplacementExtra']){
       $(id).addEventListener('input',renderReroll);
       $(id).addEventListener('change',renderReroll);
     }

@@ -1,58 +1,63 @@
 # Clamworks Lab 🐚
 
-A community-made **Legends of Idleon** Clamworks / Scurgeworks progression planner, styled to match Sushi Station Lab.
+A local-first **Legends of Idleon** Pearl and Scurge progression planner. Import an Idleon Toolbox JSON export, select a character, and decide whether to buy Pearl upgrades or save for your next Worker Class promotion. The long-term goal is Worker Class 12.
 
-**Goal:** Reach Worker Class 12 as efficiently as possible, then transition to future-content preparation.
+## Working features
 
-## Current prototype (v0.5 — character combat-stat audit)
+- **IT JSON import:** reads account upgrade levels, Scurge points, current EXP, characters, class, combat stat snapshots, equipment, saved maps and AFK assignments; nothing is uploaded.
+- **Verified costs:** calculates all nine next-level Pearl upgrade costs from game data, including Frugality, Anti Inflation and Scurge discounts, respecting unlock progress and the 25-clam cap.
+- **Promotion probabilities:** cost and chance per attempt, plus expected additional Pearls accounting for savings and unsuccessful attempts. Successful promotions reset the temporary Clamworks upgrades.
+- **Pearl allocation:** an up-to-16-purchase beam search comparing saving immediately against investing, using a consistent production model. Displays recommended purchase order, break-even prices, and one-buy time effects. This is a heuristic search, not a mathematical proof of optimality.
+- **Clam Comrades:** counted via a user-selectable mob-count efficiency scenario; buying more clams does not guarantee proportionally more kills.
+- **Multi-Scalping:** included when multikill for each contributing farming source is known; otherwise omitted from the recommendation.
+- **Scurge allocation:** assigns only unspent Scurge Points for Pearl, EXP, discount, or balanced objectives. Preserves existing levels; additional Self Affliction needs confirmed combat damage.
+- **Next Scurge Point:** previews the best allocation for one additional Scurge level, including when no points are currently unspent.
+- **Scurge EXP:** computes EXP per actual Clamworks kill, current level progress, nearby-player Swarming input, and calibrated level-up ETA when kills/hour are known.
+- **Pearl versus Scurge:** with separate observed Pearl/AFK/Scurge rates, compares spending time on the next Pearl-value Scurge Point against farming the promotion; when Scurge EXP/hour is missing, it can show the minimum required EXP/hour.
+- **Character audit:** automatically displays saved combat inputs, sourced multikill contributions, Clamworks enemy HP, World 7 overkill math, and the Self Affliction damage penalty. Off-map damage estimates are explicitly provisional.
+- **AFK reroll:** an optional analytic keep-Pure/reroll-misses comparison, including different replacement-claim reward distributions and auto-claim disabling rerolls.
 
-- Import **Idleon Toolbox JSON** or **raw game-data JSON** from a local file or pasted text.
-- View current Worker Class, Scurge Level, pearl balance and the Scurgeworks upgrade allocation.
-- Track the milestones remaining until Worker Class 12.
-- Preserve existing point allocations without assuming a refund.
-- Use the Idleon-style abbreviations: **M, B, T, Q, QQ**, then **e21** and higher.
-- Use the fictional demo account to preview the UI.
-- **Allocation Planner** compares the next promotion against saving immediately, buying pearl upgrades, and assigning unspent Scurge Points.
-- Show promotion cost, success chance, expected attempts and expected pearls to earn, including existing balance.
-- Compute break-even prices for a single pearl-production upgrade. Estimate discounted multi-purchase paths (up to three purchases), including Frugality and Anti Inflation.
-- Calculate **all nine Clamworks next-upgrade prices automatically** using built-in game-data multipliers, the current Worker Class, account upgrade levels and discount effects.
-- Track **Royal Guard active pearl farming**, **Arcane Cultist active Scurge EXP**, and the separate aggregate of all AFK character claims. The active focus selector never adds both active rates simultaneously.
-- **Character selector** imports names, class IDs, combat stat snapshots, AFK targets, current maps and activity timestamps from IT JSON. Select any character; `coumine2` is the initial selection when present, otherwise use the most recently active character. Pearl/Scurge focus and inclusion of other Clamworks AFK characters are controllable.
-- Compute **game-formula expected pearls per kill**, including regular/Pure Pearl chance, Lucky Day, Multi-Scalping, all pearl value effects, and Scurgeworks bonuses for each selected character. A companion EXP multiplier from known Scurge bonuses is shown separately.
-- **World 7 combat math**: compute Clamworks HP from Worker Class, overkill tier from calibrated max damage, W7 diminishing-returns curves for raw multikill base/per-tier, and resulting total MK. The selected character's automatically derived MK drives Multi-Scalping in pearl yield. An observed total MK may override these components.
-- **Scurge EXP projection**: read current EXP, level and allocation from the IT JSON, derive EXP needed for the next Scurge level, EXP gained per actual Clamworks kill, optional real nearby-player Swarming bonus and ETA when kills/hr is supplied. Scurge EXP does not assume the other AFK characters grant active kills.
-- **Automatic combat-stat audit (new)**: import all characters' saved STR/AGI/WIS/LUK, class/main stat, active map, equipped weapon item and enhancement power, assigned cards, talent counts, Self Affliction level, and directly verifiable W3 Death Note building multikill-base component (`2 × Tower[2]`). This source is shown independently of the complete multikill and damage fields, with an explicit missing-components list.
-- **Damage map reconciliation (new)**: optional max-damage observations from a non-Clamworks map may be adjusted for the known `/100^SelfAffliction` factor; these projections are labeled **provisional** and cannot silently unlock pearl/hour calculations. Damage observed on Clamworks is not divided again.
-- **Combat limitation**: Raw IT JSON contains per-character stats/equipment/talents but not final recalculated character max damage, raw MK base/per-tier or actual kills/hour. Completing these still requires an independent, account-wide combat-stat calculator and active/AFK simulator; this release does not invent them. AFK roster coverage and optional observed aggregate rates remain explicit.
+## How to use
 
-- Compare a simplified **keep-Pure-Pearls, reroll misses** AFK policy against accepting the first claim. Imported `OptLacc[527]` sets the auto-claim checkbox when available.
+1. Import the latest IT JSON using the file uploader or paste.
+2. In the Allocation Planner, choose your active farming character and objective. Enable other Clamworks AFK characters if applicable.
+3. Review the primary Invest or Save recommendation and its ordered Pearl purchase plan. Re-import after upgrading or successfully promoting.
+4. Select a realistic Clam Comrades scaling scenario. The default is conservative.
+5. Add observed active Pearl/hour and total AFK Pearl/hour for absolute ETA. Add observed Scurge EXP/hour to assess whether earning your next Scurge point is worthwhile.
+6. Switch the Scurge objective to Pearl value, Scurge EXP, discounts, or balanced depending on your current farming plan.
 
-**Game-data cost accuracy:** The Clamworks formula is based on `Thingies.Clam_Cost`, using `generalSpelunky[29]` for the nine growth rates and `generalSpelunky[28]` for bonus values. These are published in [Idleon Toolbox's game-data bundle](https://github.com/Morta1/IdleonToolbox) and implemented in both [Idleon Toolbox's Clamworks parser](https://github.com/Morta1/IdleonToolbox/blob/main/parsers/world-7/clamWork.ts) and [Corgan's calculator](https://github.com/Corgan/idleon-research-optimizer/blob/main/js/stats/systems/w7/clamworks.js). Next-level costs have been verified against all nine live-game reference prices from [Idleon Toolbox's test](https://github.com/Morta1/IdleonToolbox/blob/main/__test__/parsers/live-verified-clam-work.test.js). No manual price inputs are required.
+## Model limitations
 
-**AFK reroll note:** Rerolls replace AFK claim rewards rather than doubling them. Corgan's [Clamworks AFK calculator](https://github.com/Corgan/idleon-research-optimizer/blob/main/js/stats/systems/w7/clamworks-afk.js) accounts for offer chance, auto-claim, food and replacement distributions. Our current quick calculator uses manually supplied estimates and assumes identical replacement claims; per-character kill-based projections likewise omit the native claim replacement distribution. Neither is yet equivalent to the native AFK worker or incorporated into the optimal-spending solver.
+| System | Status |
+| --- | --- |
+| Next-level Pearl costs | Validated against public live-game references |
+| Scurge bonuses, promotion probability, current progress | Game-formula calculations |
+| Pearl upgrade comparisons | Relative production with an up-to-16-buy heuristic |
+| Clam Comrades | Scenario model; actual extra kills depend on combat |
+| Multi-Scalping | Requires known multikill for participating characters |
+| Complete automatic character damage and native combat kills/hour | Not implemented |
+| Native AFK reward generation, food, claim eligibility and reroll distribution | Not implemented; manual what-if model only |
+| Worker Class 9 through 12 aggregate ETA | Milestones only; post-reset combat rates aren't predicted |
 
-**Important:** Although the purchase **costs** are now validated, recommendations remain **provisional**. The present search examines at most three pearl purchases within the current promotion and uses a simplified production proxy for purchase rankings, even when character-specific ETA rates have been calibrated; Clam Comrades, Multi-Scalping, future Scurge EXP leveling effects on recommended point allocation and post-promotion reset cycles require further modeling. Available Scurge Points are estimated as Scurge level minus allocated points.
+Raw IT JSON does not contain final recalculated damage or true physical kills/hour. Reproducing them requires the full account-wide stat and combat engine. The app deliberately refuses to claim exact timing from missing inputs. The Pearl versus Scurge comparison assumes the AFK roster stays the same and that gaining one Pearl-value point does not change physical combat throughput.
 
-## Enable GitHub Pages
+## Tests
 
-1. Open the repository's **Settings**.
-2. Select **Pages** in the sidebar.
-3. Under **Build and deployment**, select **Deploy from a branch**.
-4. Choose **`main`** and **`/(root)`**, then **Save**.
-5. After GitHub finishes deploying, visit:
-   **https://coujak.github.io/Idleon-Clamwork-Optimizer/**
+Node.js 22 is recommended. Run:
 
-The website is static: `index.html`, `planner.js`, `combat-math.js`, `combat-stats.js`, `farming.js`, and `planner.css` live in the repository root. No build step is required.
+    node --test tests/*.test.mjs
 
-## Privacy
+The GitHub Actions workflow runs regression tests on pushes and pull requests. Synthetic fixtures only; no personal save files are committed.
 
-Imported saves are parsed **locally in the browser**. The public repository contains no personal account export, credentials or real-account demo values.
+## Source references
 
-## Development roadmap
+- [Idleon Toolbox Clamworks formulas](https://github.com/Morta1/IdleonToolbox/blob/main/parsers/world-7/clamWork.ts)
+- [Idleon Toolbox combat formulas](https://github.com/Morta1/IdleonToolbox/blob/main/parsers/damage.ts)
+- [Corgan calculator architecture](https://github.com/Corgan/idleon-research-optimizer) — educational review only; its restrictive license does not permit copying code into this project.
+- [Clamworks gameplay guide](https://www.digitaltq.com/wiki/idleon/the-clamworks)
 
-1. Derive native character-specific active/AFK kill rates and total multikill from the complete combat formula; use them to evaluate Clam Comrades and Multi-Scalping purchases instead of asking for observed calibration inputs.
-2. Expand the bounded purchase-sequence search into a stronger promotion-cycle optimizer.
-3. Simulate the progression across repeated promotions, including upgrade resets, to **Worker Class 12**.
-4. Add post-Class-12 progression and future-content preparation.
+## Deployment
 
-Unofficial fan project; not affiliated with the developer of Legends of Idleon.
+Clamworks Lab is a static site. Configure GitHub Pages under **Settings → Pages → Deploy from a branch → main → /(root)**.
+
+Expected URL: https://coujak.github.io/Idleon-Clamwork-Optimizer/

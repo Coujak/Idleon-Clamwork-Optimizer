@@ -260,11 +260,29 @@
     }));
     const focus=$('pFarmFocus');
     if(focus)focus.value=mode;
+    const sources=[];
+    if(mode==='pearls'){
+      sources.push({id:active.id,pearlsPerHour:active.pearlsPerHour,
+        killsPerHour:active.killsPerHour,multikill:active.multikill});
+    }
+    for(const c of plan.afk){
+      sources.push({id:c.id,pearlsPerHour:c.pearlsPerHour,
+        killsPerHour:c.killsPerHour,multikill:c.multikill});
+    }
+    if(plan.afk.length>plan.afkKnown){
+      // A missing AFK component must not allow a falsely complete MK-based recommendation.
+      sources.push({id:'unmeasured-afk',pearlsPerHour:null,killsPerHour:null,multikill:null});
+    }
     root.ClamworksPlanner?.setFarmModel?.({
-      mode,selectedName:active.name,
+      mode,selectedName:active.name,activeMultikill:active.multikill,
+      sources,otherPlayers,includeAfk,activeId:active.id,
       activePearlsPerHour:plan.activeRate,
       afkPearlsPerHour:plan.afkTotal,
       activeScurgeExpPerHour:plan.active.scurge?.expPerHour??null,
+      activeScurgeHoursToNext:plan.active.scurge?.hoursToNext??null,
+      onMapDamage:active.observedDamage?.complete&&
+        rates[selectedId]?.damageLocation!=='saved-map'?
+        active.observedDamage.value:null,
       partialAfk:plan.afkPartial,
       coverage:plan.coverage
     });
