@@ -482,7 +482,7 @@
       const improvement=estimate?.firstActions.find(row=>row.history[0]?.index===i);
       const impact=improvement&&estimate?.baseline>0?
         100*(1-improvement.score/estimate.baseline):null;
-      const cutoff=!accessible||cap?'—':(i===4||i===8?'Sequence-based':
+      const cutoff=!accessible||cap?'—':(i===4||i===8?'Depends on later buys':
         (i===3&&!estimate?.support.haveMK?'Needs MK':
         ratio!==null&&ratio>1.000000001?
           fmt(engine.singleBuyCutoff(state.pearls,estimate?.promotion||promo,ratio)):'No gain'));
