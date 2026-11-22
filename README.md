@@ -17,13 +17,17 @@ A community-made **Legends of Idleon** Clamworks / Scurgeworks progression plann
 - Compute break-even prices for a single pearl-production upgrade. Estimate discounted multi-purchase paths (up to three purchases), including Frugality and Anti Inflation.
 - Calculate **all nine Clamworks next-upgrade prices automatically** using built-in game-data multipliers, the current Worker Class, account upgrade levels and discount effects.
 - Track **Royal Guard active pearl farming**, **Arcane Cultist active Scurge EXP**, and the separate aggregate of all AFK character claims. The active focus selector never adds both active rates simultaneously.
+- **Character selector** imports names, class IDs, combat stat snapshots, AFK targets, current maps and activity timestamps from IT JSON. Select any character; `coumine2` is the initial selection when present, otherwise use the most recently active character. Pearl/Scurge focus and inclusion of other Clamworks AFK characters are controllable.
+- Compute **game-formula expected pearls per kill**, including regular/Pure Pearl chance, Lucky Day, Multi-Scalping, all pearl value effects, and Scurgeworks bonuses for each selected character. A companion EXP multiplier from known Scurge bonuses is shown separately.
+- **Observed kills/hour and total multikill are not precomputed fields in the exported raw JSON.** These optional per-character calibration inputs unlock hourly estimates. If AFK rates are missing, the planner reports incomplete coverage rather than inventing a full AFK rate. The existing aggregate observed-rate inputs remain as optional fallback.
+
 - Compare a simplified **keep-Pure-Pearls, reroll misses** AFK policy against accepting the first claim. Imported `OptLacc[527]` sets the auto-claim checkbox when available.
 
 **Game-data cost accuracy:** The Clamworks formula is based on `Thingies.Clam_Cost`, using `generalSpelunky[29]` for the nine growth rates and `generalSpelunky[28]` for bonus values. These are published in [Idleon Toolbox's game-data bundle](https://github.com/Morta1/IdleonToolbox) and implemented in both [Idleon Toolbox's Clamworks parser](https://github.com/Morta1/IdleonToolbox/blob/main/parsers/world-7/clamWork.ts) and [Corgan's calculator](https://github.com/Corgan/idleon-research-optimizer/blob/main/js/stats/systems/w7/clamworks.js). Next-level costs have been verified against all nine live-game reference prices from [Idleon Toolbox's test](https://github.com/Morta1/IdleonToolbox/blob/main/__test__/parsers/live-verified-clam-work.test.js). No manual price inputs are required.
 
-**AFK reroll note:** Rerolls replace AFK claim rewards rather than doubling them. Corgan's [Clamworks AFK calculator](https://github.com/Corgan/idleon-research-optimizer/blob/main/js/stats/systems/w7/clamworks-afk.js) accounts for offer chance, auto-claim, food and replacement distributions. Our current quick calculator uses manually supplied estimates and assumes identical replacement claims; it is not yet equivalent to the native AFK worker or incorporated into the optimal-spending solver.
+**AFK reroll note:** Rerolls replace AFK claim rewards rather than doubling them. Corgan's [Clamworks AFK calculator](https://github.com/Corgan/idleon-research-optimizer/blob/main/js/stats/systems/w7/clamworks-afk.js) accounts for offer chance, auto-claim, food and replacement distributions. Our current quick calculator uses manually supplied estimates and assumes identical replacement claims; per-character kill-based projections likewise omit the native claim replacement distribution. Neither is yet equivalent to the native AFK worker or incorporated into the optimal-spending solver.
 
-**Important:** Although the purchase **costs** are now validated, recommendations remain **provisional**. The present search examines at most three pearl purchases within the current promotion and holds character-specific kill rate constant; Clam Comrades, Multi-Scalping, future Scurge EXP leveling and post-promotion reset cycles require further modeling. Available Scurge Points are estimated as Scurge level minus allocated points.
+**Important:** Although the purchase **costs** are now validated, recommendations remain **provisional**. The present search examines at most three pearl purchases within the current promotion and uses a simplified production proxy for purchase rankings, even when character-specific ETA rates have been calibrated; Clam Comrades, Multi-Scalping, future Scurge EXP leveling and post-promotion reset cycles require further modeling. Available Scurge Points are estimated as Scurge level minus allocated points.
 
 ## Enable GitHub Pages
 
@@ -42,7 +46,7 @@ Imported saves are parsed **locally in the browser**. The public repository cont
 
 ## Development roadmap
 
-1. Model character-specific pearl/Scurge EXP kill rates for Clam Comrades, Multi-Scalping and Self Affliction (price-growth constants are already verified).
+1. Derive native character-specific active/AFK kill rates and total multikill from the complete combat formula; use them to evaluate Clam Comrades and Multi-Scalping purchases instead of asking for observed calibration inputs.
 2. Expand the bounded purchase-sequence search into a stronger promotion-cycle optimizer.
 3. Simulate the progression across repeated promotions, including upgrade resets, to **Worker Class 12**.
 4. Add post-Class-12 progression and future-content preparation.

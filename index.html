@@ -108,12 +108,12 @@ h1{font-size:26px;letter-spacing:-.035em}
 <div class="alloc-controls">
 <label class="alloc-control">Current active focus
 <select id="pFarmFocus" style="min-height:40px;border:1px solid #3b5464;background:#112130;color:#ebf5f6;border-radius:9px;padding:9px 10px">
-<option value="pearls">Royal Guard · Active pearl farming</option>
-<option value="scurge">Arcane Cultist · Active Scurge EXP</option>
+<option value="pearls">Selected character · Pearl farming</option>
+<option value="scurge">Selected character · Scurge EXP farming</option>
 </select></label>
-<label class="alloc-control">Royal Guard · observed active pearls/hr
+<label class="alloc-control">Observed active pearls/hr · fallback
 <input id="pActiveRate" type="text" inputmode="decimal" placeholder="e.g. 15B" autocomplete="off"></label>
-<label class="alloc-control">All AFK characters · combined pearls/hr after claims
+<label class="alloc-control">Observed total AFK pearls/hr · fallback
 <input id="pAfkRate" type="text" inputmode="decimal" placeholder="e.g. 1.25T" autocomplete="off"></label>
 <label class="alloc-control">Arcane Cultist · active Scurge EXP/hr
 <input id="pScurgeRate" type="text" inputmode="decimal" placeholder="e.g. 10M" autocomplete="off"></label>
@@ -122,9 +122,10 @@ h1{font-size:26px;letter-spacing:-.035em}
 <span>Selected mode: <strong id="pFarmMode">Royal Guard: active pearls + AFK</strong></span>
 <span>Arcane Cultist rate: <strong id="pScurgeActiveRate">Not supplied</strong></span>
 </div>
-<p class="alloc-note">Enter actual observed rates if known. AFK income continues while your selected character is active; the Royal Guard active rate is only added during pearl-farming focus. These observations currently affect estimated time, not the provisional purchase-ranking model.</p>
+<p class="alloc-note">Character-specific rates entered below take precedence when complete. The rates above remain optional fallback observations for ETA calculations. The optimizer never counts a selected active character as AFK.</p>
 </div>
 </div>
+<div id="characterFarming"></div>
 <div class="panel">
 <div class="alloc-section" style="margin-top:0"><div class="alloc-outcome" aria-live="polite">
 <div class="alloc-call-label">PROVISIONAL PEARL-SPENDING COMPARISON</div><div id="pOutcome" class="alloc-decision">Import a save to begin</div><div id="pStrategy" class="alloc-explanation">Not yet calculated.</div></div>
@@ -262,6 +263,7 @@ function load(raw,fromDemo=false){
   $('jsonPreview').textContent='Source: '+sourceLabel+'\nWorker Class: '+next.worker+'\nScurge Level: '+next.scurge+'\nPearl balance: '+fmt(next.pearls)+'\nScurgeworks levels: '+next.levels.join(', ')+'\nOnly Clamworks fields are displayed here.';
   showTab('overview');
   window.ClamworksPlanner?.onSave(profile);
+  window.ClamworksFarming?.onSave(raw);
 }
 function handleImportError(error){
   setImportStatus('Import failed','error');
@@ -301,6 +303,7 @@ $('fileLabel').addEventListener('keydown',event=>{
 $('clearImport').addEventListener('click',()=>{
   profile=null;renderEmpty();
   window.ClamworksPlanner?.onSave(null);
+  window.ClamworksFarming?.onSave(null);
   $('file').value='';$('paste').value='';
   setPasteOpen(false);
   setImportStatus('Waiting for data');
@@ -316,4 +319,4 @@ $('sample').addEventListener('click',()=>{
   }catch(error){handleImportError(error)}
 });
 // All examples are fictional. Imported account data is never sent to the server.
-</script><script src="planner.js?v=0.5"></script></body></html>
+</script><script src="planner.js?v=0.6"></script><script src="farming.js?v=0.1"></script></body></html>

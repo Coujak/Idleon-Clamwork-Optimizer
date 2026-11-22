@@ -23,6 +23,7 @@
   let afkPearlsPerHour = NaN;
   let activeScurgeExpPerHour = NaN;
   let activeFocus = 'pearls';
+  let characterModel = null;
 
   function promotion(worker) {
     const cost = 1e5 * Math.pow(10,worker);
@@ -227,14 +228,18 @@
     const bestAfter=after?after.best.score:NaN;
     const baseRate=estimate?.baseRate||NaN;
     const remainingPearls=expectedNeed(state.pearls,promo.cost,promo.chance);
-    const baseActive=activeFocus==='pearls'&&finitePositive(activePearlsPerHour)?activePearlsPerHour:0;
-    const baseAfk=finitePositive(afkPearlsPerHour)?afkPearlsPerHour:0;
+    const selectedRate=characterModel&&finite(characterModel.activePearlsPerHour)?characterModel.activePearlsPerHour:activePearlsPerHour;
+    const afkSelected=characterModel&&finite(characterModel.afkPearlsPerHour)?characterModel.afkPearlsPerHour:afkPearlsPerHour;
+    const baseActive=activeFocus==='pearls'&&finitePositive(selectedRate)?selectedRate:0;
+    const baseAfk=finitePositive(afkSelected)?afkSelected:0;
     const rate=baseActive+baseAfk;
-    const hasRate=finitePositive(rate);
+    // A partially calibrated AFK list is not a complete account income rate.
+    const completeAfk=!characterModel||characterModel.coverage===1||finitePositive(afkPearlsPerHour);
+    const hasRate=finitePositive(rate)&&completeAfk;
     show('pExpectedNeed',fmt(remainingPearls));
     show('pEta',hasRate?hoursText(remainingPearls/rate):'Enter farming rates');
     show('pScurgeActiveRate',finitePositive(activeScurgeExpPerHour)?fmt(activeScurgeExpPerHour)+'/hr':'Not supplied');
-    show('pFarmMode',activeFocus==='pearls'?'Royal Guard: active pearls + AFK':'Arcane Cultist: Scurge EXP + AFK pearls');
+    show('pFarmMode',(characterModel?.selectedName||'Selected character')+(activeFocus==='pearls'?': active pearls + AFK':': Scurge EXP + AFK pearls'));
     let status='', details='';
     if(state.worker>=12){
       status='Worker Class 12 reached';
@@ -257,7 +262,7 @@
     }
     $('pOutcome').textContent=status;
     $('pStrategy').textContent=details || 'No further modeled improvement found.';
-    $('pConfidence').textContent='GAME-DATA COSTS VERIFIED. Allocation advice is PROVISIONAL: purchases are searched only up to three levels. Clam Comrades and Multi-Scalping remain excluded pending character-specific kill-rate and multikill modeling; future Scurge leveling and subsequent promotions are not yet simulated.';
+    $('pConfidence').textContent='GAME-DATA COSTS VERIFIED. Character-specific pearl yields follow the game formulas; measured kills/hr and multikill are needed for calibrated hourly estimates. Pearl purchase rankings remain PROVISIONAL: the search is limited to three levels, does not yet optimize combat effects of Clam Comrades or Multi-Scalping, and does not simulate future Scurge levels or Worker Class cycles.';
     $('pPearlRows').innerHTML=PEARL.map((name,i)=>{
       const current=state.pearlLevels[i];
       const cost=nextCost(state,state.pearlLevels,state.scurgeLevels,calibrated,i);
@@ -290,6 +295,7 @@
   }
   function onSave(profile) {
     state=profile||null;
+    characterModel=null;
     if(profile&&typeof profile.autoClaim==='boolean'){
       $('pAfkAutoClaim').checked=profile.autoClaim;
     }else if(!profile){
@@ -313,7 +319,8 @@
     }
     $('pFarmFocus').addEventListener('change',event=>{
       activeFocus=event.target.value==='scurge'?'scurge':'pearls';
-      render();
+      if(window.ClamworksFarming?.setFocus){window.ClamworksFarming.setFocus(activeFocus)}
+      else render();
     });
     for(const id of ['pAfkRegular','pAfkPurePct','pAfkPureExtra','pAfkOfferPct','pAfkClaimHours','pAfkAutoClaim']){
       $(id).addEventListener('input',renderReroll);
@@ -322,6 +329,11 @@
     renderReroll();
     render();
   }
-  window.ClamworksPlanner={onSave,init,promotion,expectedNeed,pearlProxy,nextCost,costModel,breakEvenCost,afkRerollEstimate};
+  function setFarmModel(next){
+    characterModel=next||null;
+    if(next?.mode==='pearls'||next?.mode==='scurge')activeFocus=next.mode;
+    render();
+  }
+  window.ClamworksPlanner={onSave,setFarmModel,init,promotion,expectedNeed,pearlProxy,nextCost,costModel,breakEvenCost,afkRerollEstimate};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
