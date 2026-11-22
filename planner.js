@@ -468,6 +468,14 @@
   function onSave(profile) {
     state=profile||null;
     characterModel=null;
+    // An observed farming rate belongs to the old save/character configuration.
+    // Never carry it across accounts or import revisions as if it were current.
+    activePearlsPerHour=NaN;
+    afkPearlsPerHour=NaN;
+    activeScurgeExpPerHour=NaN;
+    for(const id of ['pActiveRate','pAfkRate','pScurgeRate']){
+      if($(id))$(id).value='';
+    }
     if(profile&&typeof profile.autoClaim==='boolean'){
       $('pAfkAutoClaim').checked=profile.autoClaim;
     }else if(!profile){
