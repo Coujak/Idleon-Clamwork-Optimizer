@@ -304,7 +304,9 @@
       maxDamage:characterModel?.onMapDamage??null,
       maxAffliction:Number.isSafeInteger(maxAffliction)&&maxAffliction>=0?
         maxAffliction:null})||null;
-    const xpRate=characterModel&&finitePositive(characterModel.activeScurgeExpPerHour)?
+    // When the selected character is farming Pearls, their incidental Scurge
+    // kills are NOT the measured Scurge specialist's active EXP/hour.
+    const xpRate=activeFocus==='scurge'&&characterModel&&finitePositive(characterModel.activeScurgeExpPerHour)?
       characterModel.activeScurgeExpPerHour:activeScurgeExpPerHour;
     show('pWorker','Class '+state.worker+' → '+(state.worker+1));
     show('pPearls',fmt(state.pearls));
