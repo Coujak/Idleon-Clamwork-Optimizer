@@ -97,14 +97,20 @@
     if(!chosen)return null;
     const rates=options.rates||{};
     const math=options.combatMath||(root&&root.ClamworksCombatMath)||null;
+    const stats=options.statEngine||(root&&root.ClamworksStats)||null;
+    const snapshots=options.statSnapshots||{};
     const others=Number.isSafeInteger(options.otherPlayers)&&options.otherPlayers>=0?options.otherPlayers:0;
     const rateInfo=c=>{
       const row=rates[c.id]||{};
       const kills=num(row.killsPerHour),directMk=num(row.multikill);
       const validKills=kills!==null&&kills>=0;
-      const combat=math?.multikill({maxDamage:row.maxDamage,rawBase:row.mkBase,
-        rawPerTier:row.mkPerTier,worker:account.worker})||null;
-      const calculatedMk=combat?.known?combat.total:null;
+      const snapshot=snapshots[c.id]||null;
+      const observedDamage=stats?.damageOnClamworks&&snapshot?
+        stats.damageOnClamworks(snapshot,row.maxDamage,row.damageLocation||'clamworks'):null;
+      const combat=math?.multikill({maxDamage:observedDamage?.value??row.maxDamage,
+        rawBase:row.mkBase,rawPerTier:row.mkPerTier,worker:account.worker})||null;
+      // Off-map damage adjusted only for Self Affliction is provisional.
+      const calculatedMk=combat?.known&&(!observedDamage||observedDamage.complete)?combat.total:null;
       const mk=directMk!==null&&directMk>=0?directMk:calculatedMk;
       const yieldInfo=pearlYield(account,mk!==null&&mk>=0?mk:null);
       const complete=validKills&&!yieldInfo.multikillMissing;
@@ -112,7 +118,8 @@
         killsPerHour:validKills?kills:null,otherPlayers:others})||null:null;
       return {...c,killsPerHour:validKills?kills:null,multikill:mk!==null&&mk>=0?mk:null,
         multikillSource:directMk!==null&&directMk>=0?'observed':calculatedMk!==null?'calculated':'missing',
-        combat,scurge,yield:yieldInfo,pearlsPerHour:complete?yieldInfo.expectedPerKill*kills:null,
+        combat,observedDamage,statSnapshot:snapshot,scurge,yield:yieldInfo,
+        pearlsPerHour:complete?yieldInfo.expectedPerKill*kills:null,
         baselinePearlsPerHour:validKills?yieldInfo.expectedPerKill*kills:null};
     };
     const active=rateInfo(chosen);
@@ -133,7 +140,7 @@
   if(!root||!root.document)return;
   root.ClamworksFarming=api;
   const $=id=>root.document.getElementById(id);
-  let account=null,selectedId=null,mode='pearls',includeAfk=true,rates={},otherPlayers=0;
+  let account=null,selectedId=null,mode='pearls',includeAfk=true,rates={},otherPlayers=0,statSnapshots={};
   function readPositiveRate(value){
     if(String(value??'').trim()==='')return null;
     const helper=root.parseCompactNumber;
@@ -152,7 +159,7 @@
       host.innerHTML='<div class="panel" style="margin-top:16px"><h2>Character-based farming</h2><p class="muted">Import an IT JSON to select a character and calculate Clamworks pearl yields.</p></div>';
       return;
     }
-    const plan=scenario(account,{selectedId,mode,includeAfk,rates,otherPlayers});
+    const plan=scenario(account,{selectedId,mode,includeAfk,rates,otherPlayers,statSnapshots});
     if(!plan)return;
     selectedId=plan.active.id;
     const active=plan.active;
@@ -165,9 +172,28 @@
     const mkAlert=active.yield.multikillMissing?
       ' Multi-Scalping is unlocked; its multiplier needs this character’s total multikill for a complete figure.':'';
     const mapAlert=active.stationedAtClamworks?'':' This character was not assigned to Clamworks in the save; these figures assume you move them there.';
-    const combat=active.combat,xp=active.scurge;
+    const combat=active.combat,xp=active.scurge,snap=active.statSnapshot;
+    const audit=snap?
+      '<div class="alloc-outcome" style="margin-top:10px">'+
+      '<strong>Imported combat inputs</strong> · '+esc(snap.className)+
+      ' · main stat '+esc(snap.mainStat)+' '+compact(snap.mainStatValue)+
+      ' · weapon '+esc(snap.sources.equippedWeapon??'unknown')+
+      ' · saved weapon enhancement power '+compact(snap.sources.weaponEnhancementPower)+
+      ' · '+(snap.sources.learnedTalents??'—')+' learned talent entries'+
+      '<div class="muted" style="margin-top:5px">Confirmed one-source MK-base contribution: W3 Death Note building +'+
+      compact(snap.knownMkBaseSubtotal)+' (Tower[2]). This is <strong>NOT the total MK base</strong>.</div>'+
+      '<div class="muted" style="margin-top:5px">Self Affliction Lv'+
+      compact(snap.scurgeAfflictionLevel)+' on Clamworks: damage ×'+
+      (snap.clamworksDamageFactor===null?'unknown':snap.clamworksDamageFactor.toExponential(2))+
+      '. Saved map '+compact(snap.sources.map)+'.</div>'+
+      '<p class="alloc-note">Full max damage is not derived yet. Account-wide talent, gear, cards, HP/MP, per-X and scaled percent bonuses still need a complete stat engine.</p></div>'
+      :'<p class="alloc-note">No character stat snapshot found in the imported JSON.</p>';
     const rawMkSummary=combat?.known
-      ?('Calculated total multikill '+compact(combat.total)+' ('+compact(combat.base)+' base + '+combat.tier+' tiers × '+compact(combat.perTier)+' per tier).')
+      ?((active.observedDamage&&!active.observedDamage.complete?'Provisional':'Calculated')+
+        ' total multikill '+compact(combat.total)+' ('+compact(combat.base)+
+        ' base + '+combat.tier+' tiers × '+compact(combat.perTier)+' per tier).'+
+        (active.observedDamage&&!active.observedDamage.complete?
+        ' Off-map damage correction is not trusted for pearl/hour calculations.':''))
       :('Multikill components incomplete. '+(combat?.tier?'Overkill tier '+combat.tier+'. ':'')+
         'Provide max damage and raw base/per-tier, or enter observed total multikill.');
     const expSummary=xp
@@ -199,11 +225,12 @@
       '</div><details style="margin-top:12px"><summary>Damage, overkill and World 7 multikill calculation</summary>'+
       '<p class="alloc-note">Clam HP and World 7 overkill math come from game data. The raw save lacks final damage and the full multikill breakdown; use your in-game stats to calibrate them. Zero is allowed.</p>'+
       '<div class="alloc-controls">'+
-      '<label class="alloc-control">Max damage against Clamworks<input id="cfMaxDamage" type="text" inputmode="decimal" placeholder="From combat stats" value="'+esc(rates[selectedId]?.maxDamage??'')+'"></label>'+
+      '<label class="alloc-control">Observed max damage<input id="cfMaxDamage" type="text" inputmode="decimal" placeholder="Requires full combat stat" value="'+esc(rates[selectedId]?.maxDamage??'')+'"></label>'+
+      '<label class="alloc-control">Measured damage location<select id="cfDamageLocation"><option value="clamworks"'+((rates[selectedId]?.damageLocation??'clamworks')==='clamworks'?' selected':'')+'>On Clamworks</option><option value="saved-map"'+(rates[selectedId]?.damageLocation==='saved-map'?' selected':'')+'>Saved map (Self Affliction adjustment only)</option></select></label>'+
       '<label class="alloc-control">Raw multikill base (before W7 scale)<input id="cfMkBase" type="text" inputmode="decimal" placeholder="From stat breakdown" value="'+esc(rates[selectedId]?.mkBase??'')+'"></label>'+
       '<label class="alloc-control">Raw multikill per tier (before W7 scale)<input id="cfMkPerTier" type="text" inputmode="decimal" placeholder="From stat breakdown" value="'+esc(rates[selectedId]?.mkPerTier??'')+'"></label>'+
       '<label class="alloc-control">Other real players on Clamworks<input id="cfOtherPlayers" type="number" inputmode="numeric" min="0" max="50" value="'+otherPlayers+'"></label>'+
-      '</div><div class="alloc-outcome">Clam HP: '+compact(combat?.hp)+
+      '</div>'+audit+'<div class="alloc-outcome">Clam HP: '+compact(combat?.hp)+
       '. Overkill tier: '+(combat?.tier??'—')+
       '. Damage required for next tier: '+compact(combat?.nextDamage)+'. '+esc(rawMkSummary)+'</div>'+
       '<div class="alloc-outcome" style="margin-top:10px">'+esc(expSummary)+'</div></details>'+
@@ -216,6 +243,10 @@
     $('cfIncludeAfk').addEventListener('change',e=>{includeAfk=e.target.checked;render();});
     $('cfKills').addEventListener('change',e=>{saveField(selectedId,'killsPerHour',e.target.value);render();});
     $('cfMultikill').addEventListener('change',e=>{saveField(selectedId,'multikill',e.target.value);render();});
+    $('cfDamageLocation').addEventListener('change',e=>{
+      rates[selectedId]??={};
+      rates[selectedId].damageLocation=e.target.value==='saved-map'?'saved-map':'clamworks';render();
+    });
     for(const [id,key] of [['cfMaxDamage','maxDamage'],['cfMkBase','mkBase'],['cfMkPerTier','mkPerTier']]){
       $(id).addEventListener('change',e=>{saveField(selectedId,key,e.target.value);render();});
     }
@@ -241,6 +272,10 @@
   function activeRateText(rate){return rate===null?'measured kills/hr not supplied':compact(rate)+'/hr';}
   api.onSave=(save)=>{
     account=save?getAccount(save):null;
+    statSnapshots={};
+    if(save&&root.ClamworksStats?.accountAudit){
+      for(const item of root.ClamworksStats.accountAudit(save))statSnapshots[item.id]=item;
+    }
     const chars=account?.roster||[];
     selectedId=chars.find(c=>c.name.toLowerCase()==='coumine2')?.id??
       chars.find(c=>c.likelyActive)?.id??chars[0]?.id??null;

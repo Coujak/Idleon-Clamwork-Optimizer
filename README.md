@@ -4,7 +4,7 @@ A community-made **Legends of Idleon** Clamworks / Scurgeworks progression plann
 
 **Goal:** Reach Worker Class 12 as efficiently as possible, then transition to future-content preparation.
 
-## Current prototype (v0.4 — character projections and combat math)
+## Current prototype (v0.5 — character combat-stat audit)
 
 - Import **Idleon Toolbox JSON** or **raw game-data JSON** from a local file or pasted text.
 - View current Worker Class, Scurge Level, pearl balance and the Scurgeworks upgrade allocation.
@@ -21,6 +21,8 @@ A community-made **Legends of Idleon** Clamworks / Scurgeworks progression plann
 - Compute **game-formula expected pearls per kill**, including regular/Pure Pearl chance, Lucky Day, Multi-Scalping, all pearl value effects, and Scurgeworks bonuses for each selected character. A companion EXP multiplier from known Scurge bonuses is shown separately.
 - **World 7 combat math**: compute Clamworks HP from Worker Class, overkill tier from calibrated max damage, W7 diminishing-returns curves for raw multikill base/per-tier, and resulting total MK. The selected character's automatically derived MK drives Multi-Scalping in pearl yield. An observed total MK may override these components.
 - **Scurge EXP projection**: read current EXP, level and allocation from the IT JSON, derive EXP needed for the next Scurge level, EXP gained per actual Clamworks kill, optional real nearby-player Swarming bonus and ETA when kills/hr is supplied. Scurge EXP does not assume the other AFK characters grant active kills.
+- **Automatic combat-stat audit (new)**: import all characters' saved STR/AGI/WIS/LUK, class/main stat, active map, equipped weapon item and enhancement power, assigned cards, talent counts, Self Affliction level, and directly verifiable W3 Death Note building multikill-base component (`2 × Tower[2]`). This source is shown independently of the complete multikill and damage fields, with an explicit missing-components list.
+- **Damage map reconciliation (new)**: optional max-damage observations from a non-Clamworks map may be adjusted for the known `/100^SelfAffliction` factor; these projections are labeled **provisional** and cannot silently unlock pearl/hour calculations. Damage observed on Clamworks is not divided again.
 - **Combat limitation**: Raw IT JSON contains per-character stats/equipment/talents but not final recalculated character max damage, raw MK base/per-tier or actual kills/hour. Completing these still requires an independent, account-wide combat-stat calculator and active/AFK simulator; this release does not invent them. AFK roster coverage and optional observed aggregate rates remain explicit.
 
 - Compare a simplified **keep-Pure-Pearls, reroll misses** AFK policy against accepting the first claim. Imported `OptLacc[527]` sets the auto-claim checkbox when available.
@@ -40,7 +42,7 @@ A community-made **Legends of Idleon** Clamworks / Scurgeworks progression plann
 5. After GitHub finishes deploying, visit:
    **https://coujak.github.io/Idleon-Clamwork-Optimizer/**
 
-The website is static: `index.html`, `planner.js`, `combat-math.js`, `farming.js`, and `planner.css` live in the repository root. No build step is required.
+The website is static: `index.html`, `planner.js`, `combat-math.js`, `combat-stats.js`, `farming.js`, and `planner.css` live in the repository root. No build step is required.
 
 ## Privacy
 
