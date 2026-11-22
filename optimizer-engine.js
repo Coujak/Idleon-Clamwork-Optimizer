@@ -209,11 +209,42 @@
     if(mode==='balanced')return 0.6*pearl+0.4*xp+0.1*discount;
     return pearl;
   }
+  // Evaluate a *single* additional Scurge Point using the same next-promotion
+  // purchase model as the Pearl planner. Unlike a raw Pearl-value multiplier,
+  // this compares Cost Dissolving and Cross Culting against Pearl Infection.
+  // EXP-only upgrades are excluded from this one-promotion horizon.
+  function comparePromotionScurge(rawProfile,options={}){
+    if(!rawProfile)return null;
+    const p=estimate(rawProfile);
+    const baseLevels=array9(options.scurgeLevels||p.scurge);
+    const strategy={sources:options.sources||[],clamExponent:options.clamExponent??0.5,
+      depth:options.depth??14,width:options.width??45};
+    const profile={...rawProfile,scurge:p.scurgeLevel,scurgeLevels:baseLevels};
+    const baseline=planPearls(profile,strategy);
+    if(!baseline||!positive(baseline.best.score))return null;
+    const candidates=[];
+    for(const index of [1,3,5,8]){
+      if(p.scurgeLevel<UNLOCKS[index])continue;
+      const upgraded=baseLevels.slice();upgraded[index]++;
+      const plan=planPearls({...profile,scurgeLevels:upgraded},strategy);
+      if(!plan)continue;
+      candidates.push({
+        index,name:SCURGE[index],
+        score:plan.best.score,
+        gainPct:100*(1-plan.best.score/baseline.best.score),
+        recommendedPearlBuys:plan.best.history.length,
+        firstPurchase:plan.best.history[0]?.name||null
+      });
+    }
+    candidates.sort((a,b)=>a.score-b.score);
+    return {level:p.scurgeLevel,baseline:baseline.best.score,candidates,
+      winner:candidates[0]||null,model:'next-promotion-relative'};
+  }
   function optimizeScurge(rawProfile,options={}){
     if(!rawProfile)return null;
     const p=estimate(rawProfile),s=p.scurge.slice();
     const free=Math.max(0,Math.floor(p.scurgeLevel-s.reduce((a,b)=>a+b,0)));
-    const mode=['pearls','exp','cost','balanced'].includes(options.mode)?options.mode:'pearls';
+    const mode=['promotion','pearls','exp','cost','balanced'].includes(options.mode)?options.mode:'pearls';
     const near=clamp(Number(options.otherPlayers)||0,0,50);
     const maxDamage=options.maxDamage;
     const maxAffliction=options.maxAffliction??null;
@@ -221,7 +252,18 @@
     const initial=s.slice();
     let unsafeExcluded=false;
     const hp=1e16*Math.pow(30,p.worker);
-    for(let k=0;k<free;k++){
+    const maxPoints=mode==='promotion'?Math.min(free,12):free;
+    for(let k=0;k<maxPoints;k++){
+      if(mode==='promotion'){
+        const comparison=comparePromotionScurge({...rawProfile,scurge:p.scurgeLevel,scurgeLevels:s},{
+          ...options,scurgeLevels:s
+        });
+        const candidate=comparison?.winner;
+        if(!candidate||candidate.gainPct<=1e-9)break;
+        s[candidate.index]++;
+        moves.push(candidate.index);
+        continue;
+      }
       let winner=null;
       for(let i=0;i<9;i++){
         if(p.scurgeLevel<UNLOCKS[i])continue;
@@ -244,7 +286,8 @@
       index:i,name:SCURGE[i],from:initial[i],to:s[i],delta:s[i]-initial[i],
       unlocked:p.scurgeLevel>=UNLOCKS[i]}));
     return {mode,free,spent:moves.length,unspent:free-moves.length,allocation:s,
-      distribution,unsafeExcluded,otherPlayers:near,moves};
+      distribution,unsafeExcluded,otherPlayers:near,moves,
+      searchLimited:mode==='promotion'&&free>12&&moves.length===12};
   }
   // Preview of where the very next earned Scurge Point would go.
   // It does not grant the point before the required level is reached.
@@ -254,6 +297,13 @@
     const atLevel=Math.max(p.scurgeLevel+1,spent+1);
     const model={...rawProfile,scurge:atLevel,scurgeLevel:atLevel,
       scurgeLevels:p.scurge.slice(),pearlLevels:p.levels.slice()};
+    if(options.mode==='promotion'){
+      const comparison=comparePromotionScurge(model,options);
+      const first=comparison?.winner;
+      return first&&first.gainPct>1e-9?{level:atLevel,index:first.index,name:first.name,
+        availableAtLevel:atLevel,goal:'promotion',gainPct:first.gainPct,
+        alternatives:comparison.candidates}:null;
+    }
     const result=optimizeScurge(model,options);
     const first=result?.moves[0];
     return Number.isInteger(first)?{level:atLevel,index:first,name:SCURGE[first],
@@ -318,7 +368,7 @@
     return out;
   }
   const api={NAMES,SCURGE,UNLOCKS,GROWTH,promotion,need,cost,benefit,production,
-    planPearls,optimizeScurge,previewNextScurge,switchToScurge,milestones,sourceSupport,singleBuyCutoff};
+    planPearls,optimizeScurge,comparePromotionScurge,previewNextScurge,switchToScurge,milestones,sourceSupport,singleBuyCutoff};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   if(root)root.ClamworksOptimization=api;
 })(typeof window!=='undefined'?window:null);

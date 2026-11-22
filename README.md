@@ -10,8 +10,8 @@ A local-first **Legends of Idleon** Pearl and Scurge progression planner. Import
 - **Pearl allocation:** an up-to-16-purchase beam search comparing saving immediately against investing, using a consistent production model. Displays recommended purchase order, break-even prices, and one-buy time effects. This is a heuristic search, not a mathematical proof of optimality.
 - **Clam Comrades:** counted via a user-selectable mob-count efficiency scenario; buying more clams does not guarantee proportionally more kills.
 - **Multi-Scalping:** included when multikill for each contributing farming source is known; otherwise omitted from the recommendation.
-- **Scurge allocation:** assigns only unspent Scurge Points for Pearl, EXP, discount, or balanced objectives. Preserves existing levels; additional Self Affliction needs confirmed combat damage.
-- **Next Scurge Point:** previews the best allocation for one additional Scurge level, including when no points are currently unspent.
+- **Scurge allocation:** the default Pearl-farming objective now evaluates Pearl Infection, Cost Dissolving, Cross Culting and (when unlocked) True Scurge using the same next-promotion spending model. Alternative modes prioritize pure Pearl income, Scurge EXP, purchase discounts or a balanced heuristic. Only unspent points are assigned; existing levels remain unchanged. Extra Self Affliction requires verified damage. Promotion scoring uses a bounded heuristic and currently considers up to 12 free points per calculation.
+- **Next Scurge Point:** previews the best allocation after the next level, including a table comparing each unlocked Pearl-value or cost-discount option by its modeled effect on next-promotion time. For example, Cross Culting cannot lower Encystation Up costs while Gravestart is Lv0.
 - **Scurge EXP:** computes EXP per actual Clamworks kill, current level progress, nearby-player Swarming input, and calibrated level-up ETA when kills/hour are known.
 - **Pearl versus Scurge:** with separate observed Pearl/AFK/Scurge rates, compares spending time on the next Pearl-value Scurge Point against farming the promotion; when Scurge EXP/hour is missing, it can show the minimum required EXP/hour.
 - **Character audit:** automatically displays saved combat inputs, sourced multikill contributions, Clamworks enemy HP, World 7 overkill math, and the Self Affliction damage penalty. Off-map damage estimates are explicitly provisional.
@@ -24,7 +24,7 @@ A local-first **Legends of Idleon** Pearl and Scurge progression planner. Import
 3. Review the primary Invest or Save recommendation and its ordered Pearl purchase plan. Re-import after upgrading or successfully promoting.
 4. Select a realistic Clam Comrades scaling scenario. The default is conservative.
 5. Add observed active Pearl/hour and total AFK Pearl/hour for absolute ETA. Add observed Scurge EXP/hour to assess whether earning your next Scurge point is worthwhile.
-6. Switch the Scurge objective to Pearl value, Scurge EXP, discounts, or balanced depending on your current farming plan.
+6. Leave the Scurge objective on Automatic for a next-promotion comparison that weighs Pearl Infection against Cost Dissolving and Cross Culting, or choose one of the narrower Pearl, EXP, discount or balanced modes.
 
 ## Model limitations
 

@@ -221,7 +221,7 @@
   function show(id,value){const el=$(id);if(el)el.textContent=value;}
   function effectiveMode(){
     const value=$('pScurgeGoal')?.value||'auto';
-    return value==='auto'?(activeFocus==='scurge'?'exp':'pearls'):value;
+    return value==='auto'?(activeFocus==='scurge'?'exp':'promotion'):value;
   }
   function selectedRates(){
     const activeSelected=characterModel&&finite(characterModel.activePearlsPerHour)?
@@ -300,6 +300,7 @@
       if($('pScurgeSwitch'))$('pScurgeSwitch').textContent='Import an IT JSON to compare Pearl farming with Scurge leveling.';
       if($('pAvailableScurge'))show('pAvailableScurge','—');
       if($('pScurgeEta'))show('pScurgeEta','—');
+      if($('pScurgeAlternatives'))$('pScurgeAlternatives').innerHTML='';
       return;
     }
     const engine=window.ClamworksOptimization;
@@ -316,16 +317,15 @@
     const scurgeMode=effectiveMode();
     const rawMax=$('pMaxAffliction')?.value?.trim()??'';
     const maxAffliction=rawMax!==''?Number(rawMax):null;
-    const scurge=engine?.optimizeScurge(state,{mode:scurgeMode,
-      otherPlayers:characterModel?.otherPlayers??0,
-      maxDamage:characterModel?.onMapDamage??null,
-      maxAffliction:Number.isSafeInteger(maxAffliction)&&maxAffliction>=0?
-        maxAffliction:null})||null;
-    const nextScurge=engine?.previewNextScurge(state,{
+    const scurgeConfig={
       mode:scurgeMode,otherPlayers:characterModel?.otherPlayers??0,
       maxDamage:characterModel?.onMapDamage??null,
       maxAffliction:Number.isSafeInteger(maxAffliction)&&maxAffliction>=0?
-        maxAffliction:null})||null;
+        maxAffliction:null,
+      sources,clamExponent:alpha,depth:16,width:55
+    };
+    const scurge=engine?.optimizeScurge(state,scurgeConfig)||null;
+    const nextScurge=engine?.previewNextScurge(state,scurgeConfig)||null;
     // When the selected character is farming Pearls, their incidental Scurge
     // kills are NOT the measured Scurge specialist's active EXP/hour.
     const xpRate=activeFocus==='scurge'&&characterModel&&finitePositive(characterModel.activeScurgeExpPerHour)?
@@ -347,6 +347,18 @@
     show('pScurgeEta',finite(nextXP)?hoursText(nextXP):'Kills/hr needed');
     show('pNextScurge',nextScurge?
       ('Lv'+nextScurge.level+' → '+nextScurge.name):'No available next-point allocation');
+    if($('pScurgeAlternatives')){
+      const alternatives=nextScurge?.alternatives||[];
+      $('pScurgeAlternatives').innerHTML=alternatives.length?
+        '<details style="margin-top:12px" open><summary>Next Scurge Point: compare Pearl value and discounts</summary>'+
+        '<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Upgrade</th><th>New level</th><th>Time saved to promotion</th></tr></thead><tbody>'+
+        alternatives.map((candidate,i)=>'<tr><td><strong>'+candidate.name+
+          (i===0?' · recommended':'')+'</strong></td><td>Lv'+
+          (state.scurgeLevels[candidate.index]+1)+'</td><td class="numeric">'+
+          candidate.gainPct.toFixed(2)+'%</td></tr>').join('')+
+        '</tbody></table></div><p class="alloc-note">Compares allocating the next earned point to each unlocked option under the same Pearl purchase model. These are relative, estimated promotion-time improvements, not guaranteed in-game gains.</p></details>':
+        '';
+    }
     const pearlActive=finitePositive(activePearlsPerHour)?activePearlsPerHour:
       (activeFocus==='pearls'&&finitePositive(characterModel?.activePearlsPerHour)?
         characterModel.activePearlsPerHour:null);
@@ -357,7 +369,7 @@
       activePearlsPerHour:pearlActive,
       afkPearlsPerHour:pearlAfk,
       scurgeExpPerHour:finitePositive(xpRate)?xpRate:null,
-      nextPoint:engine?.previewNextScurge(state,{mode:'pearls'})||null
+      nextPoint:nextScurge
     });
     if($('pScurgeSwitch')){
       if(!compareScurge?.available){
@@ -489,9 +501,12 @@
       const note=$('allocationNote');
       if(note)note.textContent='Objective: '+scurgeMode+
         '. '+scurge.free+' unspent points. Existing levels stay fixed; '+
-        scurge.spent+' suggested for '+scurge.distribution.filter(d=>d.delta>0).map(d=>d.name).join(', ')+
+        scurge.spent+' suggested for '+(scurge.spent?
+          scurge.distribution.filter(d=>d.delta>0).map(d=>d.name).join(', '):
+          'nowhere (no spendable improvement or no free points)')+
         '. '+(nextScurge?'Next earned point (Scurge Lv'+nextScurge.level+'): '+
           nextScurge.name+'. ':'')+
+        (scurge.searchLimited?' The promotion comparison considers at most 12 newly allocated points at a time. ':'')+
         'Self Affliction requires confirmed damage before it can be considered. Nearby players are not saved in IT JSON.';
     }
   }

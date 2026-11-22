@@ -134,6 +134,7 @@ h1{font-size:26px;letter-spacing:-.035em}
 <label class="alloc-control">Scurge Point goal
 <select id="pScurgeGoal" style="min-height:40px;border:1px solid #3b5464;background:#112130;color:#ebf5f6;border-radius:9px;padding:9px 10px">
 <option value="auto">Automatically follow farming mode</option>
+<option value="promotion">Fastest next promotion (Pearls + discounts)</option>
 <option value="pearls">Maximize pearl value</option>
 <option value="exp">Maximize Scurge EXP/kill</option>
 <option value="cost">Reduce Pearl-upgrade costs</option>
@@ -165,9 +166,10 @@ h1{font-size:26px;letter-spacing:-.035em}
 </div>
 <div class="panel">
 <div class="panel-heading"><div><div class="alloc-eyebrow">SCURGEWORKS</div><h2>How to spend remaining Scurge Points</h2></div><span class="pill purple" id="pAvailableScurge">— unspent</span></div>
-<p class="muted" style="font-size:13px">Choose Pearl value, Scurge EXP, discounts or a balanced objective above. Only <strong>unspent</strong> points are allocated; existing levels are preserved. Self Affliction is deliberately restricted when additional damage loss cannot be verified.</p>
+<p class="muted" style="font-size:13px">The default Pearl-farming goal now compares <strong>direct Pearl bonuses and upgrade-cost discounts</strong> by their estimated effect on time to promotion. You can also choose Pearl value, Scurge EXP, discounts or a balanced objective. Only <strong>unspent</strong> points are allocated; existing levels are preserved. Self Affliction remains restricted when its damage loss cannot be verified.</p>
 <div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Scurge upgrade</th><th>Current level</th><th>Suggested +points</th></tr></thead><tbody id="pScurgeRows"></tbody></table></div>
 <div class="alloc-summary-strip"><span>Pearl farming: <strong id="pCurrentRate">Not supplied</strong></span><span>Next Scurge level: <strong id="pScurgeEta">Kills/hr needed</strong></span><span>Next Scurge point: <strong id="pNextScurge">—</strong></span></div>
+<div id="pScurgeAlternatives"></div>
 <div id="pScurgeSwitch" class="alloc-outcome" style="margin-top:12px;font-size:13px">Import your account and enter separate Pearl and Scurge farming rates to compare leveling Scurge against farming for promotion.</div>
 </div>
 <div class="panel">
@@ -348,4 +350,4 @@ $('sample').addEventListener('click',()=>{
   }catch(error){handleImportError(error)}
 });
 // All examples are fictional. Imported account data is never sent to the server.
-</script><script src="optimizer-engine.js?v=0.3"></script><script src="planner.js?v=1.5"></script><script src="combat-math.js?v=0.1"></script><script src="combat-stats.js?v=0.1"></script><script src="farming.js?v=0.5"></script></body></html>
+</script><script src="optimizer-engine.js?v=0.4"></script><script src="planner.js?v=1.6"></script><script src="combat-math.js?v=0.1"></script><script src="combat-stats.js?v=0.1"></script><script src="farming.js?v=0.5"></script></body></html>
