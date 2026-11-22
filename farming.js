@@ -61,6 +61,7 @@
     const levels=Array.from({length:9},(_,i)=>num(ola[455+i])??0);
     const scurge=Array.from({length:9},(_,i)=>num(array(menagerie[5])[i])??0);
     return {worker:num(ola[464])??0,scurgeLevel:num(array(menagerie[0])[8])??0,
+      scurgeExp:num(array(menagerie[0])[7]),scurgeUnlocked:num(array(menagerie[2])[4])===1,
       pearlLevels:levels,scurgeLevels:scurge,autoClaim:num(ola[527])===1,
       pearlBalance:num(ola[454])??0,roster:getRoster(save)};
   }
@@ -95,15 +96,23 @@
       chars.find(c=>c.likelyActive)||chars[0]||null;
     if(!chosen)return null;
     const rates=options.rates||{};
+    const math=options.combatMath||(root&&root.ClamworksCombatMath)||null;
+    const others=Number.isSafeInteger(options.otherPlayers)&&options.otherPlayers>=0?options.otherPlayers:0;
     const rateInfo=c=>{
       const row=rates[c.id]||{};
-      const kills=num(row.killsPerHour);
-      const mk=num(row.multikill);
+      const kills=num(row.killsPerHour),directMk=num(row.multikill);
       const validKills=kills!==null&&kills>=0;
+      const combat=math?.multikill({maxDamage:row.maxDamage,rawBase:row.mkBase,
+        rawPerTier:row.mkPerTier,worker:account.worker})||null;
+      const calculatedMk=combat?.known?combat.total:null;
+      const mk=directMk!==null&&directMk>=0?directMk:calculatedMk;
       const yieldInfo=pearlYield(account,mk!==null&&mk>=0?mk:null);
       const complete=validKills&&!yieldInfo.multikillMissing;
+      const scurge=account.scurgeUnlocked?math?.scurgeProjection(account,{
+        killsPerHour:validKills?kills:null,otherPlayers:others})||null:null;
       return {...c,killsPerHour:validKills?kills:null,multikill:mk!==null&&mk>=0?mk:null,
-        yield:yieldInfo,pearlsPerHour:complete?yieldInfo.expectedPerKill*kills:null,
+        multikillSource:directMk!==null&&directMk>=0?'observed':calculatedMk!==null?'calculated':'missing',
+        combat,scurge,yield:yieldInfo,pearlsPerHour:complete?yieldInfo.expectedPerKill*kills:null,
         baselinePearlsPerHour:validKills?yieldInfo.expectedPerKill*kills:null};
     };
     const active=rateInfo(chosen);
@@ -124,7 +133,7 @@
   if(!root||!root.document)return;
   root.ClamworksFarming=api;
   const $=id=>root.document.getElementById(id);
-  let account=null,selectedId=null,mode='pearls',includeAfk=true,rates={};
+  let account=null,selectedId=null,mode='pearls',includeAfk=true,rates={},otherPlayers=0;
   function readPositiveRate(value){
     if(String(value??'').trim()==='')return null;
     const helper=root.parseCompactNumber;
@@ -143,7 +152,7 @@
       host.innerHTML='<div class="panel" style="margin-top:16px"><h2>Character-based farming</h2><p class="muted">Import an IT JSON to select a character and calculate Clamworks pearl yields.</p></div>';
       return;
     }
-    const plan=scenario(account,{selectedId,mode,includeAfk,rates});
+    const plan=scenario(account,{selectedId,mode,includeAfk,rates,otherPlayers});
     if(!plan)return;
     selectedId=plan.active.id;
     const active=plan.active;
@@ -156,13 +165,22 @@
     const mkAlert=active.yield.multikillMissing?
       ' Multi-Scalping is unlocked; its multiplier needs this character’s total multikill for a complete figure.':'';
     const mapAlert=active.stationedAtClamworks?'':' This character was not assigned to Clamworks in the save; these figures assume you move them there.';
+    const combat=active.combat,xp=active.scurge;
+    const rawMkSummary=combat?.known
+      ?('Calculated total multikill '+compact(combat.total)+' ('+compact(combat.base)+' base + '+combat.tier+' tiers × '+compact(combat.perTier)+' per tier).')
+      :('Multikill components incomplete. '+(combat?.tier?'Overkill tier '+combat.tier+'. ':'')+
+        'Provide max damage and raw base/per-tier, or enter observed total multikill.');
+    const expSummary=xp
+      ?('Scurge '+compact(xp.exp)+' / '+compact(xp.requirement)+' EXP; '+compact(xp.expPerKill)+
+        ' EXP/actual Clamworks kill; '+(xp.expPerHour===null?'kills/hr required for EXP/hr':
+          compact(xp.expPerHour)+' EXP/hr; '+(xp.hoursToNext===null?'ETA unavailable':compact(xp.hoursToNext)+' hours to next level')))
+      :'Scurge EXP is locked or not available in this save.';
     const summary=mode==='pearls'
       ?('Selected character: '+(activeRateText(plan.activeRate))+
         '. AFK coverage: '+plan.afkKnown+'/'+plan.afk.length+
         '; '+(plan.afkTotal!==null?'AFK total '+compact(plan.afkTotal)+'/hr':'known AFK portion '+compact(plan.afkPartial)+'/hr (incomplete)')+
         '. '+(plan.totalRate!==null?'Combined '+compact(plan.totalRate)+'/hr.':'Combined rate unavailable until all contributing rates are entered.'))
-      :('Scurge EXP multiplier: '+compact(active.yield.scurgeExpMultiplier)+
-        '× from Reckoning, Even Better and Self Affliction. Absolute EXP/hr needs combat kill rate, base EXP and map-player bonuses; AFK pearl income is tracked separately.');
+      :expSummary+' AFK pearl income is tracked separately; AFK characters do not contribute active Scurge kills.';
     host.innerHTML='<section class="panel" style="margin-top:17px" aria-label="Character farming scenario">'+
       '<h2>Character-based Clamworks farming</h2><p class="muted">Choose a character from the imported save. Pearl probabilities and values follow game data; kill rates and multikill must be calibrated, not inferred from base stats.</p>'+
       '<div class="alloc-controls" style="margin-top:12px">'+
@@ -177,8 +195,19 @@
       esc(mkAlert+mapAlert)+'</p>'+
       '<div class="alloc-controls">'+
       '<label class="alloc-control">Selected character · measured clam kills/hr<input id="cfKills" type="text" inputmode="decimal" placeholder="Not available in raw JSON" value="'+esc(rates[selectedId]?.killsPerHour??'')+'"></label>'+
-      '<label class="alloc-control">Selected character · total multikill<input id="cfMultikill" type="text" inputmode="decimal" placeholder="Not available in raw JSON" value="'+esc(rates[selectedId]?.multikill??'')+'"></label>'+
-      '</div><details style="margin-top:14px"><summary>AFK characters and individual rates ('+plan.afk.length+')</summary>'+
+      '<label class="alloc-control">Selected character · observed total multikill (optional override)<input id="cfMultikill" type="text" inputmode="decimal" placeholder="Calculated if components supplied" value="'+esc(rates[selectedId]?.multikill??'')+'"></label>'+
+      '</div><details style="margin-top:12px"><summary>Damage, overkill and World 7 multikill calculation</summary>'+
+      '<p class="alloc-note">Clam HP and World 7 overkill math come from game data. The raw save lacks final damage and the full multikill breakdown; use your in-game stats to calibrate them. Zero is allowed.</p>'+
+      '<div class="alloc-controls">'+
+      '<label class="alloc-control">Max damage against Clamworks<input id="cfMaxDamage" type="text" inputmode="decimal" placeholder="From combat stats" value="'+esc(rates[selectedId]?.maxDamage??'')+'"></label>'+
+      '<label class="alloc-control">Raw multikill base (before W7 scale)<input id="cfMkBase" type="text" inputmode="decimal" placeholder="From stat breakdown" value="'+esc(rates[selectedId]?.mkBase??'')+'"></label>'+
+      '<label class="alloc-control">Raw multikill per tier (before W7 scale)<input id="cfMkPerTier" type="text" inputmode="decimal" placeholder="From stat breakdown" value="'+esc(rates[selectedId]?.mkPerTier??'')+'"></label>'+
+      '<label class="alloc-control">Other real players on Clamworks<input id="cfOtherPlayers" type="number" inputmode="numeric" min="0" max="50" value="'+otherPlayers+'"></label>'+
+      '</div><div class="alloc-outcome">Clam HP: '+compact(combat?.hp)+
+      '. Overkill tier: '+(combat?.tier??'—')+
+      '. Damage required for next tier: '+compact(combat?.nextDamage)+'. '+esc(rawMkSummary)+'</div>'+
+      '<div class="alloc-outcome" style="margin-top:10px">'+esc(expSummary)+'</div></details>'+
+      '<details style="margin-top:14px"><summary>AFK characters and individual rates ('+plan.afk.length+')</summary>'+
       '<div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Character</th><th>Observed kills/hr</th><th>Total multikill</th><th>Expected pearls/hr</th></tr></thead><tbody>'+
       rows+'</tbody></table></div><p class="alloc-note">AFK estimates use drop expectations per recorded kill. Claim rerolls, AFK reward modifiers and unknown kill rates are not yet included; do not treat this as an exact IT AFK claim forecast.</p></details>'+
       '<div class="alloc-outcome" id="cfEstimate" style="margin-top:12px">'+esc(summary)+'</div></section>';
@@ -187,6 +216,14 @@
     $('cfIncludeAfk').addEventListener('change',e=>{includeAfk=e.target.checked;render();});
     $('cfKills').addEventListener('change',e=>{saveField(selectedId,'killsPerHour',e.target.value);render();});
     $('cfMultikill').addEventListener('change',e=>{saveField(selectedId,'multikill',e.target.value);render();});
+    for(const [id,key] of [['cfMaxDamage','maxDamage'],['cfMkBase','mkBase'],['cfMkPerTier','mkPerTier']]){
+      $(id).addEventListener('change',e=>{saveField(selectedId,key,e.target.value);render();});
+    }
+    $('cfOtherPlayers').addEventListener('change',e=>{
+      const n=Number(e.target.value);
+      otherPlayers=Number.isSafeInteger(n)&&n>=0&&n<=50?n:0;
+      render();
+    });
     host.querySelectorAll('[data-cf-id]').forEach(el=>el.addEventListener('change',e=>{
       saveField(Number(e.target.dataset.cfId),e.target.dataset.cfKey,e.target.value);render();
     }));
@@ -196,6 +233,7 @@
       mode,selectedName:active.name,
       activePearlsPerHour:plan.activeRate,
       afkPearlsPerHour:plan.afkTotal,
+      activeScurgeExpPerHour:plan.active.scurge?.expPerHour??null,
       partialAfk:plan.afkPartial,
       coverage:plan.coverage
     });
@@ -206,7 +244,7 @@
     const chars=account?.roster||[];
     selectedId=chars.find(c=>c.name.toLowerCase()==='coumine2')?.id??
       chars.find(c=>c.likelyActive)?.id??chars[0]?.id??null;
-    mode='pearls';includeAfk=true;rates={};render();
+    mode='pearls';includeAfk=true;rates={};otherPlayers=0;render();
   };
   api.setFocus=value=>{mode=value==='scurge'?'scurge':'pearls';render();};
   function init(){render();}

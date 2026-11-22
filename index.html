@@ -140,7 +140,7 @@ h1{font-size:26px;letter-spacing:-.035em}
 <div class="panel-heading"><div><div class="alloc-eyebrow">PEARL UPGRADES</div><h2>When should I stop investing?</h2></div><span class="pill">Game-data costs</span></div>
 <p class="muted" style="font-size:13px">Next upgrade costs are calculated <strong>automatically</strong> from your imported levels, current Worker Class, Scurgeworks discounts and the game's verified cost-growth constants. <strong>Break-even cost</strong> is the maximum worth paying for a single production upgrade before saving becomes faster; discount upgrades are assessed across purchase sequences.</p>
 <div class="alloc-scroll"><table class="alloc-table"><thead><tr><th>Upgrade</th><th>Level</th><th>Next cost</th><th>Break-even cost</th><th>One-buy time impact</th></tr></thead><tbody id="pPearlRows"></tbody></table></div>
-<p class="alloc-note">The optimizer searches combinations of up to three future pearl-upgrade purchases, including Frugality and Anti Inflation discounts. It holds kill rate constant and excludes Clam Comrades and Multi-Scalping from automatic recommendations until combat / multikill data is modeled. The spending recommendation remains provisional until the character-specific farming model is integrated.</p>
+<p class="alloc-note">The optimizer searches combinations of up to three future pearl-upgrade purchases, including Frugality and Anti Inflation discounts. The character panel now computes World 7 overkill and multikill using calibrated damage and base/per-tier inputs, and predicts Scurge EXP from actual kills/hour. The purchase solver still excludes Clam Comrades and Multi-Scalping until combat-rate changes can be reliably simulated. The spending recommendation remains provisional until the character-specific farming model is integrated.</p>
 </div>
 <div class="panel">
 <div class="panel-heading"><div><div class="alloc-eyebrow">SCURGEWORKS</div><h2>How to spend remaining Scurge Points</h2></div><span class="pill purple" id="pAvailableScurge">— unspent</span></div>
@@ -319,4 +319,4 @@ $('sample').addEventListener('click',()=>{
   }catch(error){handleImportError(error)}
 });
 // All examples are fictional. Imported account data is never sent to the server.
-</script><script src="planner.js?v=0.6"></script><script src="farming.js?v=0.1"></script></body></html>
+</script><script src="planner.js?v=0.7"></script><script src="combat-math.js?v=0.1"></script><script src="farming.js?v=0.2"></script></body></html>

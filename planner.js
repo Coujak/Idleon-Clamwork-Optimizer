@@ -238,7 +238,8 @@
     const hasRate=finitePositive(rate)&&completeAfk;
     show('pExpectedNeed',fmt(remainingPearls));
     show('pEta',hasRate?hoursText(remainingPearls/rate):'Enter farming rates');
-    show('pScurgeActiveRate',finitePositive(activeScurgeExpPerHour)?fmt(activeScurgeExpPerHour)+'/hr':'Not supplied');
+    const scurgeRate=characterModel&&finitePositive(characterModel.activeScurgeExpPerHour)?characterModel.activeScurgeExpPerHour:activeScurgeExpPerHour;
+    show('pScurgeActiveRate',finitePositive(scurgeRate)?fmt(scurgeRate)+'/hr':'Not supplied');
     show('pFarmMode',(characterModel?.selectedName||'Selected character')+(activeFocus==='pearls'?': active pearls + AFK':': Scurge EXP + AFK pearls'));
     let status='', details='';
     if(state.worker>=12){
@@ -262,7 +263,7 @@
     }
     $('pOutcome').textContent=status;
     $('pStrategy').textContent=details || 'No further modeled improvement found.';
-    $('pConfidence').textContent='GAME-DATA COSTS VERIFIED. Character-specific pearl yields follow the game formulas; measured kills/hr and multikill are needed for calibrated hourly estimates. Pearl purchase rankings remain PROVISIONAL: the search is limited to three levels, does not yet optimize combat effects of Clam Comrades or Multi-Scalping, and does not simulate future Scurge levels or Worker Class cycles.';
+    $('pConfidence').textContent='GAME-DATA COSTS VERIFIED. The new combat panel calculates World 7 overkill/multikill from supplied damage and raw MK components, and Scurge EXP from actual kill rates. Exact per-character damage, raw multikill components, kills/hr and AFK claim yields are not automatically reconstructed from this IT JSON. Purchase ranking remains PROVISIONAL (three levels of pearl purchases; no full combat, AFK or Class 12 cycles).';
     $('pPearlRows').innerHTML=PEARL.map((name,i)=>{
       const current=state.pearlLevels[i];
       const cost=nextCost(state,state.pearlLevels,state.scurgeLevels,calibrated,i);
