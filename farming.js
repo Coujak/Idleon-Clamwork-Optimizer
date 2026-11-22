@@ -222,7 +222,7 @@
       '<div class="alloc-controls">'+
       '<label class="alloc-control">Selected character · measured clam kills/hr<input id="cfKills" type="text" inputmode="decimal" placeholder="Not available in raw JSON" value="'+esc(rates[selectedId]?.killsPerHour??'')+'"></label>'+
       '<label class="alloc-control">Selected character · observed total multikill (optional override)<input id="cfMultikill" type="text" inputmode="decimal" placeholder="Calculated if components supplied" value="'+esc(rates[selectedId]?.multikill??'')+'"></label>'+
-      '</div><details style="margin-top:12px"><summary>Damage, overkill and World 7 multikill calculation</summary>'+
+      '</div><details open style="margin-top:12px"><summary>Imported combat stats, damage and multikill</summary>'+
       '<p class="alloc-note">Clam HP and World 7 overkill math come from game data. The raw save lacks final damage and the full multikill breakdown; use your in-game stats to calibrate them. Zero is allowed.</p>'+
       '<div class="alloc-controls">'+
       '<label class="alloc-control">Observed max damage<input id="cfMaxDamage" type="text" inputmode="decimal" placeholder="Requires full combat stat" value="'+esc(rates[selectedId]?.maxDamage??'')+'"></label>'+
